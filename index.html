@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Speak Up 英文表达打卡</title>
+<meta name="description" content="每天 30 分钟商务英语口语：场景对话 + 英式演讲跟读，语音识别打分。">
+<meta name="theme-color" content="#2F6B4F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Speak Up">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Noto+Sans+SC:wght@400;500;700;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+html{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+
+/* Layout: one phone column. Home = streak hero, today's 30-min bar, this week's theme with two practice modes, 8-week roadmap. Practice views replace home with a back bar. */
+:root{
+  --bg:#F2F3EF; --surface:#FFFFFF; --ink:#1E2421; --muted:#68716B; --line:#DCE0DA;
+  --moss:#2F6B4F; --moss-soft:#DCEBE2; --navy:#2B4A7A; --navy-soft:#E1E8F3;
+  --amber:#A86A12; --amber-soft:#F6EAD3; --slip:#B5483B; --slip-soft:#F6E1DD; --onaccent:#FFFFFF;
+  --f-num:"Bricolage Grotesque","Noto Sans SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-say:"Source Serif 4",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121614; --surface:#1B201D; --ink:#E9EEEA; --muted:#97A29B; --line:#2C3430;
+  --moss:#6CC197; --moss-soft:#1F3329; --navy:#8FB0E6; --navy-soft:#1E2838;
+  --amber:#E2B05E; --amber-soft:#33281A; --slip:#E7887B; --slip-soft:#3A2220; --onaccent:#0E1411; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121614; --surface:#1B201D; --ink:#E9EEEA; --muted:#97A29B; --line:#2C3430;
+  --moss:#6CC197; --moss-soft:#1F3329; --navy:#8FB0E6; --navy-soft:#1E2838;
+  --amber:#E2B05E; --amber-soft:#33281A; --slip:#E7887B; --slip-soft:#3A2220; --onaccent:#0E1411; color-scheme:dark }
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:520px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px;display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.top h1{font-size:15px;font-weight:700;letter-spacing:.04em}
+.top .date{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hero{display:flex;align-items:flex-end;gap:14px}
+.big{font-family:var(--f-num);font-weight:800;font-size:96px;line-height:.85;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--moss)}
+.hero .lbl{padding-bottom:6px;min-width:0}
+.hero .lbl b{display:block;font-size:18px}
+.hero .lbl span{color:var(--muted);font-size:13px}
+.sec h2{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--muted);margin-bottom:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.today .row1{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.today .row1 b{font-family:var(--f-num);font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.today .row1 span{color:var(--muted);font-size:13px}
+.bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--moss);border-radius:99px;transition:width .5s}
+.bar.thin{height:6px}
+.bar.navy i{background:var(--navy)}
+.check{appearance:none;border:0;width:100%;border-radius:16px;padding:14px;font:inherit;font-size:17px;font-weight:900;letter-spacing:.04em;background:var(--moss);color:var(--onaccent);cursor:pointer}
+.check.done{background:var(--moss-soft);color:var(--moss)}
+.check:disabled{cursor:default}
+button:focus-visible,a:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+.btn{appearance:none;font:inherit;font-size:13px;background:none;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:7px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;white-space:nowrap}
+.btn.solid{background:var(--moss);border-color:var(--moss);color:var(--onaccent);font-weight:700}
+.btn.navy{background:var(--navy);border-color:var(--navy);color:var(--onaccent);font-weight:700}
+.btn.ghost-navy{color:var(--navy);border-color:var(--navy)}
+.btn.warn{color:var(--slip);border-color:var(--slip)}
+.btn.solid-warn{background:var(--slip);color:var(--onaccent);border-color:var(--slip)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.wd{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.dot{width:100%;max-width:40px;aspect-ratio:1;border-radius:50%;border:2px dashed var(--line);display:grid;place-items:center;font-family:var(--f-num);font-weight:600;font-size:13px;color:var(--muted)}
+.dot.ok{background:var(--moss);border:2px solid var(--moss);color:var(--onaccent)}
+.dot.part{border:2px solid var(--moss);color:var(--moss)}
+.dot.today{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.dot.ok.today{border-color:var(--moss);color:var(--onaccent)}
+
+.theme-head{display:flex;flex-direction:column;gap:2px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--navy)}
+.theme-head h3{font-family:var(--f-num);font-size:24px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+.theme-head .cn{color:var(--muted);font-size:14px}
+.plan{background:var(--navy-soft);border-radius:12px;padding:10px 12px;font-size:14px}
+.plan b{color:var(--navy)}
+.prog{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px;color:var(--muted)}
+.prog em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode{appearance:none;font:inherit;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:16px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mode .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--moss-soft)}
+.mode.m2 .ic{background:var(--navy-soft)}
+.mode .ic svg{width:20px;height:20px;stroke:var(--moss);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.mode.m2 .ic svg{stroke:var(--navy)}
+.mode b{font-size:16px}
+.mode span{font-size:12px;color:var(--muted);line-height:1.45}
+.vocab-btn{justify-content:center}
+.road{display:flex;flex-direction:column;gap:8px}
+.wk{appearance:none;font:inherit;color:inherit;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;grid-template-columns:44px 1fr;gap:2px 10px;align-items:center;cursor:pointer}
+.wk .n{grid-row:span 2;font-family:var(--f-num);font-weight:800;font-size:22px;color:var(--muted);text-align:center}
+.wk .t{font-weight:700;font-size:14px;min-width:0}
+.wk .t small{font-weight:400;color:var(--muted);margin-left:6px}
+.wk.cur{border-color:var(--navy);background:var(--navy-soft)}
+.wk.cur .n{color:var(--navy)}
+.stats{display:flex;gap:10px}
+.stat{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
+.stat b{display:block;font-family:var(--f-num);font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.note{font-size:12px;color:var(--muted)}
+.tip{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
+.tip svg{flex:none;width:18px;height:18px;margin-top:2px;stroke:var(--navy);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+select{font:inherit;font-size:13px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 8px;max-width:100%}
+
+/* practice views */
+.bar-top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.timer{font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:14px;color:var(--moss);font-weight:600}
+.scene-card{background:var(--navy-soft);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.scene-card h3{font-size:19px}
+.scene-card .en{font-family:var(--f-say);font-size:15px}
+.scene-card .who{font-size:13px;color:var(--navy);font-weight:700}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{appearance:none;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:6px 12px;cursor:pointer}
+.tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chat{display:flex;flex-direction:column;gap:10px}
+.bub{max-width:88%;padding:10px 14px;border-radius:16px;font-family:var(--f-say);font-size:16px;line-height:1.5;min-width:0;overflow-wrap:anywhere}
+.bub.p{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bub.me{align-self:flex-end;background:var(--moss-soft);border-bottom-right-radius:4px}
+.bub .nm{display:flex;align-items:center;gap:8px;font-family:var(--f-body);font-size:12px;color:var(--muted);margin-bottom:2px}
+.say:not(.btn){appearance:none;border:0;background:none;color:var(--navy);cursor:pointer;padding:2px;display:inline-grid;place-items:center}
+.say:not(.btn) svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hint{font-size:14px;background:var(--amber-soft);color:var(--ink);border-radius:12px;padding:10px 12px}
+.hint b{color:var(--amber)}
+textarea{width:100%;box-sizing:border-box;font:inherit;font-family:var(--f-say);font-size:16px;line-height:1.5;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:12px;min-height:96px;resize:vertical}
+textarea:focus{border-color:var(--moss)}
+.fb{display:flex;flex-direction:column;gap:12px}
+.score{display:flex;align-items:center;gap:12px}
+.score b{font-family:var(--f-num);font-size:44px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.score.hi b{color:var(--moss)} .score.mid b{color:var(--amber)} .score.lo b{color:var(--slip)}
+.score span{font-size:14px;min-width:0}
+.fb h4{margin:0;font-size:12px;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.fix{display:flex;flex-direction:column;gap:2px;font-size:14px;padding:8px 10px;border-radius:10px;background:var(--bg)}
+.fix .w{color:var(--slip);text-decoration:line-through;font-family:var(--f-say)}
+.fix .r{color:var(--moss);font-weight:600;font-family:var(--f-say)}
+.fix .why{color:var(--muted);font-size:13px}
+.model{font-family:var(--f-say);font-size:16px;line-height:1.6;background:var(--moss-soft);border-radius:12px;padding:12px}
+.phr{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:14px;padding:6px 0;border-bottom:1px solid var(--line)}
+.phr span{min-width:0}
+.phr i{font-style:normal;color:var(--muted);font-size:13px;margin-left:6px}
+.chip{display:inline-block;font-family:var(--f-num);font-size:12px;font-weight:700;border-radius:99px;padding:1px 8px;font-variant-numeric:tabular-nums}
+.chip.hi{background:var(--moss-soft);color:var(--moss)} .chip.mid{background:var(--amber-soft);color:var(--amber)} .chip.lo{background:var(--slip-soft);color:var(--slip)}
+.loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--moss);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.ted{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center}
+.ted .badge{grid-row:span 3;width:46px;height:46px;border-radius:12px;background:var(--slip);color:var(--onaccent);display:grid;place-items:center;font-family:var(--f-num);font-weight:800;font-size:15px;letter-spacing:.02em}
+.ted b{font-size:15px;min-width:0}
+.ted span{font-size:13px;color:var(--muted);min-width:0}
+.sdots{display:flex;gap:6px;flex-wrap:wrap}
+.sd{appearance:none;width:30px;height:30px;border-radius:9px;border:1.5px solid var(--line);background:var(--surface);color:var(--muted);font-family:var(--f-num);font-weight:600;font-size:13px;cursor:pointer}
+.sd.ok{background:var(--moss);border-color:var(--moss);color:var(--onaccent)}
+.sd.part{border-color:var(--amber);color:var(--amber)}
+.sd.cur{outline:2px solid var(--ink);outline-offset:1px}
+.line{font-family:var(--f-say);font-size:22px;line-height:1.45;letter-spacing:-.005em}
+.line.blur{filter:blur(6px);user-select:none}
+.diff{font-family:var(--f-say);font-size:17px;line-height:1.7}
+.diff .ok{color:var(--moss)}
+.wbtn{appearance:none;border:0;background:none;padding:0;font:inherit;cursor:pointer}
+.diff .miss{color:var(--slip);text-decoration:underline wavy;text-underline-offset:3px}
+.diff .ex{color:var(--amber);font-size:14px}
+.passage{font-family:var(--f-say);font-size:17px;line-height:1.7}
+.passage span.ok{background:var(--moss-soft)}
+video{width:100%;max-width:100%;border-radius:14px;background:#000}
+audio{width:100%}
+.checklist{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.checklist label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.vc{display:flex;flex-direction:column;gap:4px;padding:12px 0;border-bottom:1px solid var(--line)}
+.vc .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.vc .h b{font-family:var(--f-say);font-size:18px;min-width:0}
+.vc .cn{font-size:13px;color:var(--muted)}
+.vc .ex{font-family:var(--f-say);font-size:15px}
+.vc.known b{color:var(--moss)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;max-width:calc(100% - 32px);text-align:center;z-index:30}
+.sum{display:flex;flex-direction:column;gap:10px}
+.sum .it{display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+@media (max-width:380px){.modes{grid-template-columns:1fr}.big{font-size:80px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.mic{appearance:none;border:0;cursor:pointer;width:72px;height:72px;border-radius:50%;background:var(--slip);color:var(--onaccent);display:grid;place-items:center;flex:none;box-shadow:0 0 0 0 color-mix(in srgb,var(--slip) 45%,transparent)}
+.mic svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mic.on{animation:pulse 1.2s ease-out infinite;background:var(--slip)}
+.mic.on svg{display:none}
+.mic.on::after{content:"";width:22px;height:22px;border-radius:5px;background:var(--onaccent)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--slip) 45%,transparent)}100%{box-shadow:0 0 0 18px transparent}}
+.microw{display:flex;align-items:center;gap:14px}
+.microw .lab{font-size:14px;color:var(--muted);min-width:0}
+.microw .lab b{display:block;color:var(--ink);font-size:15px}
+.meta{display:flex;gap:8px;flex-wrap:wrap}
+.meta span{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:2px 10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cam{position:relative}
+.cam video.live{transform:scaleX(-1)}
+.cam .rec{position:absolute;top:10px;left:10px;background:var(--slip);color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:2px 10px}
+.prompter{font-family:var(--f-say);font-size:19px;line-height:1.6;max-height:220px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+input[type=text],input[type=password]{width:100%;font:inherit;font-size:15px;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:9px 11px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;color:var(--muted)}
+.setup{border-color:var(--navy);background:var(--navy-soft)}
+.warnbox{font-size:13px;background:var(--amber-soft);border-radius:12px;padding:10px 12px}
+@media (prefers-reduced-motion:reduce){.mic.on{animation:none;outline:4px solid var(--slip)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+(function(){
+/* ===================== CONTENT (tokens: {N} name, {C} company, {CITY} city) ===================== */
+const RAW=[
+{id:'t1',en:'Introductions & Small Talk',cn:'自我介绍与商务寒暄',goal:'30 秒内清楚说出你是谁、做什么、为什么值得聊下去。',
+ ted:{who:'Julian Treasure',title:'How to speak so that people want to listen',url:'https://www.ted.com/talks/julian_treasure_how_to_speak_so_that_people_want_to_listen',why:'英国声音专家，讲语调、节奏、音色，第一周打发音底子。'},
+ vocab:[
+  ['It\'s a pleasure to meet you in person','很高兴终于见到您本人','It\'s a pleasure to meet you in person after all those emails.'],
+  ['I look after …','我负责……（英式常用）','I look after compliance and quality at {C}.'],
+  ['How was your journey?','路上还顺利吗？','How was your journey? Did you come down from London?'],
+  ['a small but growing team','一个小而发展中的团队','We\'re a small but growing team based in {CITY}.'],
+  ['I\'ve heard a lot about …','久闻……','I\'ve heard a lot about your new café openings.'],
+  ['to touch base','简单碰一下、联系一下','Shall we touch base again next week?'],
+  ['What brings you to …?','是什么风把你吹到……？','What brings you to the show this year?'],
+  ['Let\'s keep in touch','保持联系','It was great chatting. Let\'s keep in touch.']],
+ scenes:[
+  {id:'t1a',title:'展会上认识买家',desc:'You are at a food and drink trade show. A buyer for a group of cafés stops at the {C} stand.',cn:'你在食品饮料展会上，一位连锁咖啡店的采购来到你们展位。',partner:{name:'James',role:'Purchasing lead, café group'},
+   turns:[
+    {p:'Hi there, I don\'t think we\'ve met. I\'m James, I look after purchasing for a group of cafés in the South West.',hint:'自我介绍：名字、公司、你的职位、公司做什么。',model:'Lovely to meet you, James. I\'m {N}, and I look after compliance at {C}. We import ceremonial-grade matcha, hojicha and ube powder, mainly for cafés and food service.'},
+    {p:'Compliance! That sounds serious. What does that involve day to day?',hint:'用简单、轻松的话解释你的工作。',model:'It sounds more serious than it is! Day to day, I make sure everything we bring into the UK is safe, properly labelled and fully traceable, so our customers never have to worry about it.'},
+    {p:'Interesting. So how long have you been with the company?',hint:'说你刚加入不久，以及你喜欢这份工作的哪一点。',model:'I joined fairly recently, actually, but I\'ve really enjoyed it so far. It\'s a small team, so I get to see the whole journey, from the farm right through to the café counter.'},
+    {p:'Well, it\'s been great chatting. Have you got a card?',hint:'递名片，主动提出后续跟进（发资料/样品）。',model:'Of course, here you go. It\'d be great to touch base next week. I could send you our spec sheets and a few samples, if that\'s helpful.'}]},
+  {id:'t1b',title:'在办公室接待访客',desc:'A technical auditor from a customer arrives at your {CITY} office for a visit.',cn:'客户的技术审核员来{CITY}办公室拜访，正式开始前先寒暄。',partner:{name:'Sarah',role:'Technical auditor'},
+   turns:[
+    {p:'Morning! Sorry I\'m a few minutes late. The traffic on the M32 was awful.',hint:'说没关系，聊两句路况，问停车是否顺利。',model:'Morning, Sarah, no problem at all. The M32 is a nightmare at this time of day. Did you manage to find somewhere to park?'},
+    {p:'Yes, eventually. Lovely office, by the way. Have you been here long?',hint:'感谢夸奖，简单介绍办公室和周边。',model:'Thank you! It\'s quite compact, but it suits a small team like ours, and there are some lovely cafés nearby for lunch.'},
+    {p:'So, before we start, tell me a bit about the team.',hint:'介绍团队规模和分工（采购/产品 vs 合规/质量，物流伙伴）。',model:'Sure. There are only a handful of us. Our Chief Matcha Officer leads sourcing and the product side, and I look after compliance and quality. We also work closely with logistics partners in China and the UK.'},
+    {p:'Great. Shall we get started?',hint:'过渡到正式议程：先讲什么，再讲什么，问对方是否同意。',model:'Yes, let\'s. I\'ve printed the agenda for you. I thought we\'d start with a quick overview of our supply chain, then go through the documents you asked for. Does that work for you?'}]}],
+ passage:{title:'First impressions',lines:[
+  'Good morning, everyone, and thank you for having me.',
+  'My name is {N}, and I look after compliance at {C}, a small tea company based in {CITY}.',
+  'Now, I know the word compliance doesn\'t exactly get pulses racing.',
+  'But behind every cup of matcha you buy, there is a quiet chain of checks, documents and decisions.',
+  'My job is to make sure that chain never breaks.',
+  'Today, I\'d like to show you how we do that, and why it matters to you.',
+  'So, let\'s begin with a simple question: where does your matcha actually come from?']}},
+
+{id:'t2',en:'Meetings: Agreeing & Disagreeing',cn:'开会：表达同意与不同意',goal:'在会上礼貌但坚定地说"不"，并把讨论推向结论。',
+ ted:{who:'Margaret Heffernan',title:'Dare to disagree',url:'https://www.ted.com/talks/margaret_heffernan_dare_to_disagree',why:'英式口音的前企业 CEO，讲为什么好团队需要建设性的反对。'},
+ vocab:[
+  ['Shall we make a start?','我们开始吧？','Right, it\'s ten o\'clock. Shall we make a start?'],
+  ['Just to recap, …','简单总结一下……','Just to recap, we\'re holding the batch until Thursday.'],
+  ['I take your point, but …','我明白你的意思，但……','I take your point, but the risk is too high.'],
+  ['Could I just come in here?','我可以插一句吗？','Sorry, could I just come in here on the timeline?'],
+  ['I\'m not sure I agree with that','我不太同意','I\'m not sure I agree with that. The data says otherwise.'],
+  ['Let\'s park that for now','这个先放一放','Good question. Let\'s park that for now and come back to it.'],
+  ['to be on the same page','达成一致','I just want to make sure we\'re all on the same page.'],
+  ['action points','行动项','Let\'s go through the action points before we finish.']],
+ scenes:[
+  {id:'t2a',title:'周会：检测报告没出能不能先发货',desc:'Weekly operations meeting. Sales want to ship a new matcha batch before the lab results are back.',cn:'运营周会。销售想在检测报告出来之前先把新一批抹茶发出去。',partner:{name:'Mark',role:'Sales manager, chairing'},
+   turns:[
+    {p:'Right, I think everyone\'s here. {N}, could you kick us off with the compliance update?',hint:'开场：说你有三件事要汇报（检测结果、包装供应商问题、紫薯粉标签），会讲得简短。',model:'Thanks, Mark. I\'ve got three quick updates: the lab results for the new matcha batch, the packaging supplier issue, and the label changes for the ube powder. I\'ll keep it brief.'},
+    {p:'Great. On the matcha batch, sales are keen to ship it this week. Can we go ahead?',hint:'礼貌地反对：检测报告还没回来，周四才出，只耽误两天。',model:'I understand the pressure, but I\'d rather we didn\'t ship it until the lab results are back. They\'re due on Thursday, so we\'d only be losing a couple of days.'},
+    {p:'A couple of days could cost us the order, though.',hint:'先认可对方，再给折中方案：现在通知客户周五发货，并随货附 CoA。',model:'I take your point. What if we let the customer know now that it\'ll go out on Friday, and offer to send the certificate of analysis with the shipment? That way they can see we\'re being thorough.'},
+    {p:'Okay, that could work. Can you summarise where we\'ve landed?',hint:'总结结论和每个人的行动项，并确认大家是否同意。',model:'Sure. Just to recap: we\'ll hold the batch until Thursday\'s results, I\'ll chase the lab tomorrow morning, and you\'ll update the customer today. Is everyone happy with that?'}]},
+  {id:'t2b',title:'项目会：新品上市时间太紧',desc:'A project meeting about launching a new liquid concentrate range in March.',cn:'讨论液体浓缩饮品三月上市的项目会，你要提出合规时间线的担忧。',partner:{name:'Priya',role:'Project manager'},
+   turns:[
+    {p:'So we\'re planning to launch the new liquid range in March. Any concerns from your side?',hint:'提出担忧：上市前需要保质期测试和标签审核，大约八周，三月可以但很紧。',model:'Just one, really. We\'ll need shelf-life testing and a full label review before launch, and that usually takes around eight weeks. March is possible, but it\'s tight.'},
+    {p:'Eight weeks? Can\'t we run those in parallel with production?',hint:'解释：标签审核可以并行，保质期测试要用第一批生产的产品，赶不了。',model:'Some of it, yes. The label review can run in parallel, but the shelf-life study needs product from the first production run, so that part can\'t really be rushed.'},
+    {p:'Hmm. So what would you suggest?',hint:'建议把首次试产提前两周，并说明理由。',model:'I\'d suggest we bring the first trial run forward by two weeks. That gives us enough data for the shelf-life study and keeps March realistic.'},
+    {p:'Let\'s park that for now and come back to it on Friday.',hint:'同意，并说你周五前会准备一个时间线方案对比。',model:'That\'s fine. In the meantime, I\'ll put together a short timeline so we can look at the options side by side on Friday.'}]}],
+ passage:{title:'Why good teams disagree',lines:[
+  'In the best meetings I\'ve been to, people didn\'t always agree.',
+  'In fact, the most useful moments came when someone said, I\'m not sure that\'s right.',
+  'Disagreement isn\'t a sign that a team is failing.',
+  'It\'s often a sign that people care enough to speak up.',
+  'The trick is to challenge the idea, not the person.',
+  'So next time you hear an objection, don\'t defend yourself straight away.',
+  'Ask a question instead, and you may find a better answer together.']}},
+
+{id:'t3',en:'Product Presentations',cn:'产品演示与问答',goal:'用"结构 + 卖点 + 证据"讲清楚一个产品，并稳住问答环节。',
+ ted:{who:'Rory Sutherland',title:'Life lessons from an ad man',url:'https://www.ted.com/talks/rory_sutherland_life_lessons_from_an_ad_man',why:'奥美英国副董事长，典型英式幽默与说服技巧，学怎么"卖感受"。'},
+ vocab:[
+  ['I\'d like to walk you through …','我带大家过一遍……','I\'d like to walk you through our new range.'],
+  ['What sets it apart is …','它的不同之处在于……','What sets it apart is the consistency.'],
+  ['shelf life','保质期','It has a shelf life of several months unopened.'],
+  ['cost per cup','单杯成本','The cost per cup is lower than you might think.'],
+  ['to tailor something to …','为……量身定制','We can tailor the pack size to your stores.'],
+  ['That brings me to …','这就引出了……','That brings me to my next point: pricing.'],
+  ['off the top of my head','凭印象随口说','I don\'t want to quote a figure off the top of my head.'],
+  ['to run a trial','做试点','Could we run a trial in two of your stores?']],
+ scenes:[
+  {id:'t3a',title:'向连锁咖啡店推介液体抹茶',desc:'You are presenting {C}\'s liquid matcha concentrate to the head of beverages at a café chain.',cn:'你向连锁咖啡店的饮品负责人推介液体抹茶浓缩液。',partner:{name:'Olivia',role:'Head of beverages, café chain'},
+   turns:[
+    {p:'Thanks for coming in. So, what have you brought to show us today?',hint:'开场：介绍产品 + 你要讲的三部分结构（是什么、吧台怎么用、对利润的意义）。',model:'Thank you for having us. Today I\'d like to walk you through our liquid matcha concentrate. I\'ll cover what it is, how it works behind the bar, and what it could mean for your margins.'},
+    {p:'We already use matcha powder. Why would we switch?',hint:'核心卖点：口味稳定、不用打茶、十秒出杯。',model:'What sets it apart is consistency. With powder, every barista whisks it slightly differently. With the concentrate, you just pour and mix, so every latte tastes the same, and it\'s ready in about ten seconds.'},
+    {p:'And how long does it keep once it\'s opened?',hint:'回答保质期；具体天数不确定就承诺发规格书书面确认。',model:'Unopened, it keeps for several months. Once opened, it needs to be refrigerated and used within a set number of days. I\'ll send you the exact figures from our spec sheet so you have them in writing.'},
+    {p:'What about price? It sounds expensive.',hint:'回应价格异议：单价高，但算上损耗和人工，单杯成本有竞争力，主动提出一起算账。',model:'It\'s a fair question. The unit price is higher than powder, but when you look at the cost per cup, including waste and staff time, it\'s very competitive. I\'d be happy to work through the numbers with you.'}]},
+  {id:'t3b',title:'演示后的问答环节',desc:'After your presentation, a retailer\'s quality manager asks some detailed questions.',cn:'演示结束后，零售商的质量经理追问细节，有些你当场答不了。',partner:{name:'David',role:'Quality manager, retailer'},
+   turns:[
+    {p:'Thanks, that was clear. Can I ask where exactly the tea is grown?',hint:'回答原产地，强调每批都能追溯到农场和加工厂，可提供追溯记录。',model:'Of course. Our matcha powder is grown in China, and every batch can be traced back to the farm and the processing site. I can share the traceability records if you\'d like to see them.'},
+    {p:'Is it certified organic?',hint:'核心抹茶粉有有机认证可发证书；其他产品不确定就说核实后回复。',model:'Our core matcha powder is certified organic, and I can send you a copy of the certificate. For the other products, I\'d rather check the details and come back to you than give you the wrong answer.'},
+    {p:'What\'s your minimum order quantity?',hint:'不清楚具体数字：说取决于产品和规格，问销售后当天邮件回复。',model:'That depends on the product and the pack size, so I don\'t want to quote a figure off the top of my head. Let me check with our sales team and email you the details by the end of the day.'},
+    {p:'Great. Anything else we should know?',hint:'收尾：可以寄样品，建议在两三家门店试点后一起复盘。',model:'Just that we\'re happy to send samples for your team to try. If it works for you, we could run a short trial in two or three of your stores and review the feedback together.'}]}],
+ passage:{title:'Ten calm seconds',lines:[
+  'Let me tell you about the busiest ten minutes in a café.',
+  'It\'s quarter past eight, the queue is out of the door, and someone orders a matcha latte.',
+  'The barista sighs, because matcha means sieving, whisking and hoping it doesn\'t clump.',
+  'Now imagine that same drink made in the time it takes to say oat milk, please.',
+  'That is what we are really selling: not a tea, but ten calm seconds.',
+  'People rarely buy a product for what it is.',
+  'They buy it for what it changes.']}},
+
+{id:'t4',en:'Compliance & Technical Meetings',cn:'合规与技术会议',goal:'把复杂的合规流程讲得有条理，遇到技术分歧时据理力争但不失礼。',
+ ted:{who:'Tim Harford',title:'Trial, error and the God complex',url:'https://www.ted.com/talks/tim_harford_trial_error_and_the_god_complex',why:'英国经济学家，讲试错和系统思维，跟质量管理思路很契合。'},
+ vocab:[
+  ['traceability','可追溯性','Every pack carries a batch number for full traceability.'],
+  ['certificate of analysis (CoA)','检测分析证书','Each batch comes with a certificate of analysis.'],
+  ['within the legal limit','在法定限值内','All results were well within the legal limit.'],
+  ['a non-conformance','不符合项','We raised a non-conformance against the supplier.'],
+  ['corrective action','纠正措施','We agreed corrective actions with the factory.'],
+  ['to flag an issue','提出一个问题','I just wanted to flag an issue with the latest report.'],
+  ['root cause','根本原因','We\'re still investigating the root cause.'],
+  ['a mock recall','模拟召回','We run a mock recall twice a year.']],
+ scenes:[
+  {id:'t4a',title:'向客户技术团队介绍合规体系',desc:'A retailer\'s technical manager is reviewing {C} as a new supplier.',cn:'零售商技术经理在评估你们做新供应商，你要介绍合规流程。',partner:{name:'Helen',role:'Technical manager, retailer'},
+   turns:[
+    {p:'Could you talk us through your approval process for a new supplier?',hint:'分四步介绍：问卷 → 审核证书和检测报告 → 风险评估 → 批准并设复审日期。',model:'Certainly. It has four main steps. First, the supplier completes our questionnaire. Then we review their certificates and test reports. Next, we assess the risks, and finally, we approve them with a review date.'},
+    {p:'How do you make sure each batch is safe?',hint:'每批有 CoA，我们自己再做重金属、农残、微生物检测；超标就扣留不上市。',model:'Every batch comes with a certificate of analysis, and we carry out our own independent testing for heavy metals, pesticide residues and microbiology. If any result is outside the legal limit, the batch is held and doesn\'t go to market.'},
+    {p:'And if something does go wrong, say, a packaging defect?',hint:'不合格处理：立即开不符合项、隔离库存、和供应商查根因、定纠正措施、留记录。',model:'We\'d raise a non-conformance straight away and quarantine the affected stock. Then we\'d investigate the root cause with the supplier, agree corrective actions, and keep a full record.'},
+    {p:'Can you trace a product back from a customer\'s shelf?',hint:'可以：通过批号追溯到生产日期、原料和运输批次；定期做模拟召回检验。',model:'Yes. Every pack carries a batch number, and from that we can trace it back to the production date, the raw materials and the shipment. We test the system regularly with mock recalls.'}]},
+  {id:'t4b',title:'和供应商 QA 讨论检测结果',desc:'A video call with a supplier\'s QA manager about a lab result that was close to the UK limit.',cn:'和中国供应商的 QA 经理视频，讨论一项接近英国限值的农残结果。',partner:{name:'Kevin',role:'QA manager, tea supplier'},
+   turns:[
+    {p:'Hello, {N}. You wanted to discuss the latest lab report?',hint:'开门见山：某项农残非常接近英国最大残留限量，想了解原因。',model:'Yes, thanks for making time, Kevin. I wanted to flag an issue. One of the pesticide residues in the latest batch is very close to the UK maximum residue level, so I\'d like to understand what happened.'},
+    {p:'Our own test showed it was within the limit.',hint:'礼貌指出差异可能来自检测方法，要求对方提供方法细节和原始数据。',model:'I understand, and I appreciate you sharing that. The difference may be down to the lab methods, but we need to be confident. Could you send us the full method details and the raw data from your lab?'},
+    {p:'Sure. What do you need from us going forward?',hint:'改进要求：每批出货前由认可实验室检测，报告至少在离港前一周提供。',model:'Going forward, we\'d like each batch tested by an accredited lab before shipment, and we\'d need the report at least a week before the goods leave the port.'},
+    {p:'That should be fine. Anything else?',hint:'总结：今天发邮件书面确认，下一批检测后一起复盘。',model:'No, that\'s everything. I\'ll put this in an email today so we both have a written record, and let\'s review it together once the next batch has been tested.'}]}],
+ passage:{title:'Making yes safe',lines:[
+  'Most people think compliance is about saying no.',
+  'I think it\'s about making yes safe.',
+  'Almost every regulation you can name was written after something went wrong.',
+  'A label, a test, a signature on a form: each one is a lesson someone learnt the hard way.',
+  'When we follow those rules carefully, we\'re not slowing the business down.',
+  'We\'re making sure we never have to learn those lessons again.',
+  'And that, to me, is what good compliance really looks like.']}},
+
+{id:'t5',en:'Negotiating with Suppliers',cn:'与供应商谈判',goal:'会还价、会交换条件、会把结果落到书面。',
+ ted:{who:'Margaret Heffernan',title:'Forget the pecking order at work',url:'https://www.ted.com/talks/margaret_heffernan_forget_the_pecking_order_at_work',why:'讲合作胜过内耗，适合建立长期供应商关系的谈判心态。'},
+ vocab:[
+  ['lead time','交货周期','The lead time is currently six weeks.'],
+  ['minimum order quantity (MOQ)','最小起订量','What\'s the MOQ for the printed bags?'],
+  ['We\'d be looking for …','我们期望的是……','We\'d be looking for something closer to fifteen pence.'],
+  ['Would you be open to …?','您是否考虑……？','Would you be open to a twelve-month agreement?'],
+  ['That\'s a bit higher than we expected','比我们预期的高一些','To be honest, that\'s a bit higher than we expected.'],
+  ['to meet halfway','各让一步','If you can do four weeks, we can meet halfway.'],
+  ['payment terms','付款条件','Our standard payment terms are thirty days.'],
+  ['to put it in writing','书面确认','Could you put that in writing for us?']],
+ scenes:[
+  {id:'t5a',title:'和包装厂谈价格与交期',desc:'You are negotiating a twelve-month contract for printed tea bags with a packaging supplier.',cn:'你在和包装供应商谈一年期的印刷包装袋合同。',partner:{name:'Linda',role:'Sales manager, packaging company'},
+   turns:[
+    {p:'So, based on your volumes, our price is eighteen pence per bag.',hint:'表示价格偏高；因为是一年期合作，期望接近 15 便士。',model:'Thanks, Linda. To be honest, that\'s a bit higher than we expected. Given that we\'re looking at a twelve-month commitment, we\'d be looking for something closer to fifteen pence.'},
+    {p:'Fifteen is difficult. Film costs have gone up a lot this year.',hint:'表示理解；提出用增加订量 + 固定交货计划换 16 便士。',model:'I understand costs have risen. Would you be open to sixteen pence if we increased the order size and agreed to a fixed delivery schedule?'},
+    {p:'We could do sixteen and a half, but the lead time would be six weeks.',hint:'价格可以接受，但六周太长；如果能缩到四周就各让一步成交。',model:'Sixteen and a half could work, but six weeks is too long for us. If you can bring the lead time down to four weeks, I think we can meet halfway.'},
+    {p:'Okay, four weeks it is. Shall I send over a revised quote?',hint:'同意，并要求把封口强度检测等质量要求写进报价。',model:'Yes, please. Could you also include the quality requirements we discussed, particularly the seal strength testing, so everything\'s in writing?'}]},
+  {id:'t5b',title:'拒绝预付款，谈付款条件',desc:'A new freight forwarder wants full payment upfront before releasing a shipment.',cn:'新的货代要求放货前全额预付，你要争取付款条件。',partner:{name:'Ben',role:'Account manager, freight forwarder'},
+   turns:[
+    {p:'We\'d need full payment upfront before we release the shipment.',hint:'礼貌拒绝：我们标准条件是发票后 30 天，其他物流伙伴也是如此。',model:'I\'m afraid that won\'t work for us. Our standard terms are thirty days from invoice, and that\'s what we have with our other logistics partners.'},
+    {p:'We usually only offer thirty days to larger clients.',hint:'强调虽然现在规模小，但增长快，寻求长期合作。',model:'I appreciate that. We may be small at the moment, but our volumes are growing quickly, and we\'re looking for a partner we can work with for the long term.'},
+    {p:'What if we did fifty per cent upfront and the rest on delivery?',hint:'折中：前三个月可以这样，之后建立信用再转 30 天账期。',model:'That\'s a reasonable starting point. How about we do that for the first three months, and then move to thirty days once we\'ve built up a track record?'},
+    {p:'I\'d need to check with my manager.',hint:'可以，请对方周五前答复，因为下周初要订下一票货。',model:'Of course. Could you let me know by Friday? We\'d like to book the next shipment early next week.'}]}],
+ passage:{title:'The deal that lasts',lines:[
+  'The best negotiators I\'ve met rarely talk the most.',
+  'They ask good questions, and then they listen.',
+  'Because the price on the table is almost never the whole story.',
+  'Behind it there\'s a worry about cash flow, a target to hit, or a boss to please.',
+  'Once you understand that, you can offer something that costs you little but means a lot to them.',
+  'That\'s how both sides walk away feeling they\'ve won.',
+  'And that\'s the kind of deal that lasts.']}},
+
+{id:'t6',en:'Handling Problems & Complaints',cn:'处理问题与客户投诉',goal:'先共情、再解决、再预防，把坏消息讲得让人放心。',
+ ted:{who:'Tim Harford',title:'How frustration can make us more creative',url:'https://www.ted.com/talks/tim_harford_how_frustration_can_make_us_more_creative',why:'讲混乱和挫折如何带来更好的解决方案，适合"出问题"这周的心态。'},
+ vocab:[
+  ['I\'m so sorry to hear that','非常抱歉听到这个情况','I\'m so sorry to hear that. Let me sort it out.'],
+  ['Let me look into it','我来查一下','Let me look into it and call you back this afternoon.'],
+  ['to get to the bottom of','查清楚','We\'re determined to get to the bottom of it.'],
+  ['at no cost to you','不收您任何费用','We\'ll send replacements at no cost to you.'],
+  ['to keep someone posted','随时告知进展','I\'ll keep you posted on what we find.'],
+  ['to be held at the port','在港口被扣','The container has been held at the port.'],
+  ['a goodwill gesture','表示诚意的补偿','As a goodwill gesture, we\'ve added a free sample pack.'],
+  ['to split a delivery','分批发货','We can split the delivery from existing stock.']],
+ scenes:[
+  {id:'t6a',title:'客户投诉包装袋破裂',desc:'A café owner calls because many bags in the last delivery split at the seal. It\'s the second time.',cn:'咖啡店老板来电，上一批货很多袋子封口处裂开，而且是第二次了。',partner:{name:'Emma',role:'Café owner'},
+   turns:[
+    {p:'Hi, I\'m calling because half the bags in our last delivery were split at the seal.',hint:'先道歉，再收集信息：批号、受影响数量、请对方发照片。',model:'I\'m so sorry to hear that, Emma. Could you tell me the batch number on the bags, and roughly how many are affected? Photos would really help us too.'},
+    {p:'The batch number\'s on the photos I sent. About twenty bags. We\'ve had to throw them away.',hint:'立即解决：今天就补发，两个工作日内到，不收费。',model:'Thank you. I\'ll arrange replacements to go out today, so you should have them within two working days, at no cost to you, of course.'},
+    {p:'I appreciate that, but this is the second time it\'s happened.',hint:'承认对方有理由不满；说明正和包装供应商查根本原因，会亲自同步进展。',model:'You\'re absolutely right to be frustrated. We\'re already investigating the root cause with our packaging supplier, and I\'ll personally keep you posted on what we find.'},
+    {p:'Okay. What will you do to stop it happening again?',hint:'预防措施：每批来料加封口强度检查、检查运输装箱方式；改完发书面总结。',model:'We\'re adding a seal strength check on every incoming batch of bags, and we\'re reviewing how the cartons are packed for transport. I\'ll send you a short summary once the changes are in place.'}]},
+  {id:'t6b',title:'向老板汇报货物被扣',desc:'You need to tell your manager that a container has been held at the port for a document check.',cn:'集装箱在港口被扣查文件，你要向上级汇报。',partner:{name:'Your manager',role:'Managing director'},
+   turns:[
+    {p:'Morning. I hear there\'s a problem with the shipment?',hint:'简洁说明：集装箱在 Felixstowe 被扣，港口卫生部门要求补一份证书。',model:'Morning. Yes, the container has been held at Felixstowe for a document check. Port health have asked for an additional certificate.'},
+    {p:'How long will it be held?',hint:'说明不确定，但一般补齐后 2–3 个工作日；你已联系供应商今天发证书。',model:'It\'s hard to say exactly. Once they have the certificate, it\'s usually two to three working days. I\'ve already contacted the supplier, and they\'re sending it today.'},
+    {p:'Will it affect any customer orders?',hint:'评估影响：下周可能有两单受影响，建议现在通知客户并用现有库存分批发。',model:'Possibly two orders due next week. I suggest we let those customers know now and offer to split the delivery from existing stock, so they\'re not left short.'},
+    {p:'Good. Anything we need to change for next time?',hint:'流程改进：把这份证书加进出货前检查清单，在中国离港前就核对。',model:'Yes. I\'d like to add that certificate to our pre-shipment checklist, so we check it before the goods leave China, not after they arrive.'}]}],
+ passage:{title:'What happens next',lines:[
+  'Every business gets things wrong sometimes.',
+  'What customers remember is not the mistake itself, but what happened next.',
+  'Did someone pick up the phone? Did they say sorry and mean it?',
+  'Did they fix the problem, or just explain it?',
+  'A complaint handled well can build more trust than a year of perfect deliveries.',
+  'So when the phone rings with bad news, take a breath.',
+  'This is your chance to show people who you really are.']}},
+
+{id:'t7',en:'Calls, Listening & Follow-ups',cn:'电话、倾听与跟进',goal:'听不清时敢问、会复述确认、会留言、会邮件跟进。',
+ ted:{who:'Julian Treasure',title:'5 ways to listen better',url:'https://www.ted.com/talks/julian_treasure_5_ways_to_listen_better',why:'同一位英国讲者，这次讲"听"，语速适中，适合精听跟读。'},
+ vocab:[
+  ['Sorry, you broke up there','抱歉，刚才信号断了','Sorry, you broke up there. Could you say that again?'],
+  ['I didn\'t catch …','我没听清……','Sorry, I didn\'t catch the day.'],
+  ['Just to make sure I\'ve understood, …','为了确认我理解对了……','Just to make sure I\'ve understood, it\'s Wednesday at ten?'],
+  ['Let me read that back to you','我复述一遍','Let me read that back to you: thirty-two pallets.'],
+  ['I\'ll follow up by email','我会邮件跟进','I\'ll follow up by email with the details.'],
+  ['as discussed','如我们所讨论的','As discussed, please find the report attached.'],
+  ['to give someone a ring','给某人打电话','Could you give me a ring if anything changes?'],
+  ['I\'ll get back to you by …','我会在……前回复你','I\'ll get back to you by Thursday at the latest.']],
+ scenes:[
+  {id:'t7a',title:'信号不好的仓库来电',desc:'The UK warehouse calls about an incoming delivery. The line is poor.',cn:'英国仓库来电确认到货，但电话信号不好。',partner:{name:'Chris',role:'UK warehouse supervisor'},
+   turns:[
+    {p:'Hi, it\'s Chris from the warehouse. The delivery\'s coming on... at ten.',hint:'信号断了，礼貌请对方重复，说明你没听清哪一天。',model:'Sorry, Chris, you broke up there. Could you say that again? I didn\'t catch the day.'},
+    {p:'Wednesday. Wednesday at ten. Thirty-two pallets.',hint:'复述确认：32 托，周三十点到，对吗？',model:'Lovely, thanks. Just to make sure I\'ve understood: thirty-two pallets, arriving on Wednesday at ten o\'clock. Is that right?'},
+    {p:'That\'s right. Can you make sure someone signs for it?',hint:'你会亲自签收；有变化请打你手机。',model:'Yes, I\'ll be there myself to sign for it. If anything changes, could you give me a ring on my mobile?'},
+    {p:'Will do. Anything else?',hint:'结束通话：会邮件确认细节，道别。',model:'No, that\'s all. I\'ll follow up by email with the delivery details so we\'ve both got them in writing. Thanks, Chris, speak soon.'}]},
+  {id:'t7b',title:'给检测实验室留言并跟进',desc:'You call the testing lab about late results and get their voicemail. Later they call you back.',cn:'检测结果晚了，你打给实验室进了语音信箱；之后对方回电。',partner:{name:'Rachel',role:'Account manager, testing lab'},
+   turns:[
+    {p:'You\'ve reached Rachel at the lab. Please leave a message after the tone.',hint:'留言：你是谁、哪家公司、什么事（昨天应出的检测结果）、请回电。',model:'Hi Rachel, it\'s {N} from {C}. I\'m calling about the test results for our latest matcha batch, which were due yesterday. Could you call me back on my mobile when you get a chance? Thanks very much.'},
+    {p:'Hi {N}, it\'s Rachel returning your call. Sorry about the delay.',hint:'感谢回电，说没关系，问结果大概什么时候好。',model:'Thanks for calling back, Rachel. No problem at all. Do you have an idea of when the results will be ready?'},
+    {p:'The heavy metals are done, but the microbiology needs another forty-eight hours.',hint:'表示有帮助，请对方先把重金属结果发过来。',model:'That\'s helpful, thank you. Would it be possible to send the heavy metals results now, so we can start our review while we wait for the rest?'},
+    {p:'Of course, I\'ll email them this afternoon.',hint:'感谢，并复述时间：今天下午收到第一部分，周四前收到完整报告。',model:'Brilliant, thank you. So I\'ll expect the first results this afternoon and the full report by Thursday. I really appreciate your help.'}]}],
+ passage:{title:'Say less, notice more',lines:[
+  'We spend years learning how to speak.',
+  'We spend almost no time learning how to listen.',
+  'Yet in most conversations, the person who listens best is the one who understands most.',
+  'Listening isn\'t just waiting for your turn to talk.',
+  'It means noticing the pause, the hesitation, the word someone chose not to say.',
+  'Try it in your next meeting: say less, notice more.',
+  'You may be surprised by how much you hear.']}},
+
+{id:'t8',en:'Presenting Data & Persuading',cn:'讲数据与说服别人',goal:'会描述趋势、解释原因、给出建议，并说服有顾虑的同事。',
+ ted:{who:'Rory Sutherland',title:'Perspective is everything',url:'https://www.ted.com/talks/rory_sutherland_perspective_is_everything',why:'再听一次 Rory 的英式表达，学怎么换个角度把观点讲得有说服力。'},
+ vocab:[
+  ['As you can see from this chart, …','从这张图可以看出……','As you can see from this chart, sales picked up in September.'],
+  ['a steady increase','稳步增长','There\'s been a steady increase since spring.'],
+  ['to level off','趋于平稳','Growth is starting to level off.'],
+  ['a significant drop','明显下降','There was a significant drop in August.'],
+  ['year on year','同比','Sales are up twenty per cent year on year.'],
+  ['This suggests that …','这说明……','This suggests that we need more stock in the UK.'],
+  ['The bottom line is …','归根结底……','The bottom line is that we need a bigger buffer.'],
+  ['Why don\'t we try …?','我们不如试试……？','Why don\'t we try it for one product line first?']],
+ scenes:[
+  {id:'t8a',title:'向管理层汇报季度数据',desc:'You are presenting last quarter\'s sales chart to the managing director.',cn:'你向总经理汇报上季度的销售图表。',partner:{name:'Your MD',role:'Managing director'},
+   turns:[
+    {p:'Okay, let\'s see the numbers for the quarter.',hint:'介绍这张图展示的是什么：上季度每月抹茶粉销量，对比去年同期。',model:'Certainly. As you can see from this chart, it shows our monthly sales of matcha powder over the last quarter, compared with the same period last year.'},
+    {p:'Looks like there\'s a dip in August?',hint:'解释：八月明显下降，主要因为一票货在港口延误；九月到货后回升。',model:'That\'s right. There was a significant drop in August, mainly because one shipment was delayed at the port. Sales recovered in September once the stock arrived.'},
+    {p:'And what\'s the overall trend?',hint:'总体稳步增长，同比增长约 20%，但大客户的增长开始趋缓。',model:'Overall, there\'s been a steady increase. Sales are up around twenty per cent year on year, although growth is starting to level off with our largest accounts.'},
+    {p:'So what do you recommend?',hint:'结论：需要库存缓冲，建议在英国保持四周安全库存。',model:'The bottom line is that we need more of a stock buffer. I\'d recommend that we keep four weeks of safety stock in the UK, which would protect us from another delay like August\'s.'}]},
+  {id:'t8b',title:'说服同事用新的追溯系统',desc:'A colleague is sceptical about moving from spreadsheets to a new traceability database.',cn:'同事不想从 Excel 换到新的追溯数据库，你要说服他。',partner:{name:'Alex',role:'Operations colleague'},
+   turns:[
+    {p:'Honestly, I don\'t see why we need another system. The spreadsheets work fine.',hint:'先认可 Excel 的作用，再指出问题：追溯一个批次要从多个文件拼几个小时。',model:'I understand. The spreadsheets have served us well. The problem is that when a customer asks us to trace a batch, it takes hours to pull everything together from different files.'},
+    {p:'But learning a new system takes time.',hint:'承认初期成本，量化收益：几小时变几分钟，一年省很多时间。',model:'It does, at first. But once it\'s set up, a full trace takes a few minutes instead of a few hours. Over a year, that\'s a lot of time saved for everyone.'},
+    {p:'What if it doesn\'t work?',hint:'低风险试点：先用一条产品线试一个月，不省时就退回 Excel。',model:'That\'s a fair concern. Why don\'t we try it for one product line for a month? If it doesn\'t save us time, we can go back to the spreadsheets.'},
+    {p:'Okay, I\'m willing to give it a go.',hint:'感谢，说明下一步：下周安排一次简短培训。',model:'Thank you, I really appreciate that. I\'ll set up a short training session next week and make sure you have everything you need to get started.'}]}],
+ passage:{title:'Numbers tell stories',lines:[
+  'A chart on its own doesn\'t persuade anybody.',
+  'What persuades people is the story the chart tells.',
+  'So before you show a single number, ask yourself one question.',
+  'What do I want my audience to do after they\'ve seen this?',
+  'Then choose the one figure that makes that decision obvious.',
+  'Leave out everything else, however proud of it you are.',
+  'Clarity, not quantity, is what changes minds.']}}
+];
+const DAYPLAN=[
+ ['词汇 + 场景 A','先过一遍本周 8 个表达，再练场景对话 A。'],
+ ['课文逐句跟读','模式二：本周课文一句句跟读，目标每句 100%。'],
+ ['场景 B','模式一：场景对话 B，注意用上本周词汇。'],
+ ['整段复述 + 视频模仿','模式二：整段连读，然后录一段视频让 AI 点评表情和体态。'],
+ ['AI 新场景','模式一：让 AI 按本周主题生成一个新场景，检验能否迁移。'],
+ ['TED 原声跟读','打开本周 TED，把你喜欢的一段文字稿贴进来逐句跟读。'],
+ ['本周复盘','盲练：隐藏中文提示，把 A、B 两个场景各说一遍，争取全部 85 分以上。']
+];
+
+
+
+/* ===================== PROFILE & SETTINGS (this device only) ===================== */
+const PK='speakup-profile-v1';
+let P={name:'',company:'',city:'',bio:'',key:'',model:'claude-sonnet-5-5',voice:'',recVoice:!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent),autoAfterPlay:true};
+try{const r=localStorage.getItem(PK);if(r)Object.assign(P,JSON.parse(r))}catch(e){}
+function saveP(){try{localStorage.setItem(PK,JSON.stringify(P))}catch(e){}}
+let T=[];
+function buildContent(){const rep={'{N}':P.name||'Sam','{C}':P.company||'Leaf & Co','{CITY}':P.city||'London'};
+  const j=JSON.stringify(RAW).replace(/\{N\}|\{C\}|\{CITY\}/g,m=>JSON.stringify(rep[m]).slice(1,-1));T=JSON.parse(j)}
+buildContent();
+const bio=()=>P.bio||'a small UK company that imports matcha, hojicha and ube powder from China and liquid matcha concentrate from Japan';
+
+/* ===================== STATE ===================== */
+const KEY='speakup-v1';
+const WD=['日','一','二','三','四','五','六'];
+const pad=n=>String(n).padStart(2,'0');
+const ds=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const todayD=()=>{const d=new Date();d.setHours(12,0,0,0);return d};
+const parseD=k=>new Date(k+'T12:00:00');
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const GOAL=1800;
+let S={start:null,days:{},vocab:{},turns:{},sents:{},custom:{},gen:{},saved:[],updated:0};
+function load(){try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);if(o&&o.days)S=Object.assign(S,o)}}catch(e){}}
+function save(){S.updated=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+load();if(!S.start){S.start=ds(todayD());save()}
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+
+/* ===================== DERIVED ===================== */
+function weekIndex(){const d=Math.floor((todayD()-parseD(S.start))/864e5);return {w:Math.max(0,Math.floor(d/7))%8,day:((d%7)+7)%7,round:Math.floor(Math.max(0,d)/56)+1}}
+function dayRec(k){return S.days[k]||(S.days[k]={sec:0,ok:0})}
+function streak(){const t=todayD();let d=S.days[ds(t)]&&S.days[ds(t)].ok?t:addDays(t,-1);let c=0;while(S.days[ds(d)]&&S.days[ds(d)].ok){c++;d=addDays(d,-1)}return c}
+function stats(){let best=0,run=0,prev=null,total=0,sec=0;Object.keys(S.days).sort().forEach(k=>{const v=S.days[k];sec+=v.sec||0;if(v.ok){total++;run=(prev&&ds(addDays(parseD(prev),1))===k&&S.days[prev].ok)?run+1:1;best=Math.max(best,run)}else run=0;prev=k});return {best:Math.max(best,streak()),total,hours:sec/3600}}
+function themeProg(t){const v=t.vocab.filter((_,i)=>S.vocab[t.id+'-'+i]).length;
+  const turns=t.scenes.flatMap(s=>s.turns.map((_,i)=>s.id+'-'+i));const tg=turns.filter(k=>(S.turns[k]||0)>=85).length;
+  const sg=t.passage.lines.filter((_,i)=>(S.sents[t.id+'-p'+i]||0)>=100).length;
+  return {v,vn:t.vocab.length,tg,tn:turns.length,sg,sn:t.passage.lines.length,pct:Math.round(100*(v/t.vocab.length+tg/turns.length+sg/t.passage.lines.length)/3)}}
+const cls=s=>s>=85?'hi':s>=60?'mid':'lo';
+
+/* ===================== TEXT TO SPEECH ===================== */
+let voices=[];
+function loadVoices(){try{voices=speechSynthesis.getVoices()}catch(e){voices=[]}}
+if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=()=>{loadVoices();const s=document.getElementById('voiceSel');if(s)fillVoices(s)}}
+function gb(){const g=voices.filter(v=>/^en[-_]GB/i.test(v.lang));const pref=['Daniel','Serena','Kate','Arthur','Martha','Google UK English Female','Google UK English Male','Libby','Ryan','Sonia'];
+  g.sort((a,b)=>{const ia=pref.findIndex(p=>a.name.includes(p)),ib=pref.findIndex(p=>b.name.includes(p));return (ia<0?99:ia)-(ib<0?99:ib)});return g}
+function pickVoice(alt){const g=gb();const chosen=g.find(v=>v.name===P.voice);if(!alt)return chosen||g[0]||null;const main=chosen||g[0];return g.find(v=>v!==main)||main||null}
+function speak(text,opt){opt=opt||{};if(!('speechSynthesis' in window)){toast('这个浏览器不支持朗读');opt.onend&&opt.onend();return}
+  try{stopListen();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';const v=pickVoice(opt.alt);if(v)u.voice=v;u.rate=opt.rate||0.95;
+    if(opt.onend){let fired=false;const f=()=>{if(!fired){fired=true;opt.onend()}};u.onend=f;u.onerror=f}
+    speechSynthesis.speak(u)}catch(e){toast('朗读失败')}}
+function fillVoices(sel){const g=gb();sel.innerHTML=g.length?g.map(v=>`<option value="${esc(v.name)}" ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join(''):'<option value="">这台设备没有英式声音，将用默认英语</option>'}
+
+/* ===================== SPEECH RECOGNITION + VOICE RECORDING ===================== */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let L=null; // active listening session
+let myAudioURL=null;
+function listen(ta,onDone){
+  if(!SR){toast('这个浏览器不支持语音识别，请用 Chrome 或 Safari，或用键盘麦克风输入');return}
+  if(L){stopListen();return}
+  try{speechSynthesis.cancel()}catch(e){}
+  const r=new SR();r.lang='en-GB';r.interimResults=true;r.continuous=true;r.maxAlternatives=1;
+  const s={r,final:'',tFirst:0,tLast:0,confs:[],err:null,onDone,ta};L=s;
+  if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}
+  r.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];const now=performance.now();if(!s.tFirst)s.tFirst=now;s.tLast=now;
+      if(res.isFinal){s.final+=(s.final?' ':'')+res[0].transcript.trim();if(res[0].confidence>0)s.confs.push(res[0].confidence)}else interim+=res[0].transcript}
+    if(s.ta){s.ta.value=(s.final+' '+interim).trim()}};
+  r.onerror=e=>{s.err=e.error;
+    if(e.error==='not-allowed'||e.error==='service-not-allowed')toast('麦克风没有授权：在浏览器地址栏的权限里允许麦克风');
+    else if(e.error==='audio-capture'){if(P.recVoice){P.recVoice=false;saveP();toast('这台设备不能边识别边录音，已关闭"同时录音"，请再点一次')}else toast('找不到麦克风')}
+    else if(e.error==='network')toast('语音识别需要联网');
+    else if(e.error==='no-speech')toast('没听到声音，再试一次')};
+  r.onend=()=>{if(L!==s)return;L=null;stopRecorder();setMicUI();
+    const text=s.ta?s.ta.value.trim():s.final;const span=s.tFirst&&s.tLast?(s.tLast-s.tFirst)/1000:0;const secs=span>1.5?span+0.6:0;
+    const conf=s.confs.length?s.confs.reduce((a,b)=>a+b,0)/s.confs.length:0;
+    if(s.onDone&&text)s.onDone({text,secs,conf})};
+  try{r.start()}catch(e){L=null;toast('语音识别启动失败');return}
+  if(P.recVoice)startRecorder();
+  setMicUI();
+}
+function stopListen(){if(L){try{L.r.stop()}catch(e){}}}
+function setMicUI(){document.querySelectorAll('.mic').forEach(b=>{b.classList.toggle('on',!!L);b.setAttribute('aria-label',L?'停止':'开始说')});
+  document.querySelectorAll('.micstate').forEach(el=>el.textContent=L?'正在听…说完点一下停止':el.dataset.idle||'点红色按钮开始说')}
+let MR=null;
+async function startRecorder(){if(!navigator.mediaDevices||!window.MediaRecorder)return;
+  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});if(!L){st.getTracks().forEach(t=>t.stop());return}
+    const mr=new MediaRecorder(st);const ch=[];mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
+    mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());if(!ch.length)return;myAudioURL=URL.createObjectURL(new Blob(ch,{type:mr.mimeType||'audio/webm'}));
+      document.querySelectorAll('.myaudio').forEach(a=>{a.src=myAudioURL;a.hidden=false})};
+    mr.start();MR=mr}catch(e){}}
+function stopRecorder(){if(MR&&MR.state!=='inactive'){try{MR.stop()}catch(e){}}MR=null}
+const wpm=(text,secs)=>secs>0?Math.round(text.split(/\s+/).filter(Boolean).length/secs*60):0;
+function metaHTML(m){if(!m)return '';const out=[];const w=wpm(m.text,m.secs);if(w)out.push(`语速 ${w} 词/分钟${w>175?' · 偏快':w<95?' · 偏慢':''}`);if(m.conf)out.push(`识别把握 ${Math.round(m.conf*100)}%`);
+  return out.length?`<div class="meta">${out.map(x=>`<span>${x}</span>`).join('')}</div>`:''}
+const audioHTML=()=>`<audio class="myaudio" controls ${myAudioURL?`src="${myAudioURL}"`:'hidden'}></audio>`;
+
+/* ===================== CLAUDE API (optional, user's own key) ===================== */
+async function blobB64(b){return await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(b)})}
+function parseJSON(t){try{return JSON.parse(t)}catch(e){}const m=t.match(/```(?:json)?\s*([\s\S]*?)```/);if(m){try{return JSON.parse(m[1])}catch(e){}}
+  const a=t.search(/[\[{]/),b=Math.max(t.lastIndexOf('}'),t.lastIndexOf(']'));if(a>=0&&b>a){try{return JSON.parse(t.slice(a,b+1))}catch(e){}}return null}
+async function ai(prompt,opt){opt=opt||{};if(!P.key)return null;
+  const content=[];for(const b of (opt.images||[]))content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:await blobB64(b)}});
+  content.push({type:'text',text:prompt+'\n\nReply with only the JSON, no other text.'});
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':P.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:P.model||'claude-sonnet-5-5',max_tokens:opt.max||1600,messages:[{role:'user',content}]})});
+  if(!res.ok){let msg='';try{const j=await res.json();msg=j.error&&j.error.message||''}catch(e){}
+    const err=new Error(res.status===401?'API Key 无效，请到设置里检查':res.status===429?'调用太频繁或额度不足，稍后再试':res.status===400&&/credit/i.test(msg)?'API 账户余额不足，请到 console.anthropic.com 充值':('AI 请求失败（'+res.status+'）'+msg.slice(0,120)));throw err}
+  const j=await res.json();const txt=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('');const v=parseJSON(txt);if(v==null)throw new Error('AI 返回格式有误，再试一次');return v}
+
+/* ===================== DIFF ===================== */
+const NUM='zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split(' ');
+const TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+const nw=n=>{n=+n;if(n<20)return NUM[n];if(n<100)return TENS[Math.floor(n/10)]+(n%10?' '+NUM[n%10]:'');return String(n)};
+function norm(s){return String(s).toLowerCase().replace(/[’‘`]/g,"'").replace(/(\d+)\s*%/g,'$1 per cent').replace(/\bpercent\b/g,'per cent')
+  .replace(/(\d+):(\d{2})/g,'$1 $2').replace(/\d+/g,d=>+d<100?nw(d):d).replace(/-/g,' ').replace(/'/g,'').replace(/[^a-z0-9 ]+/g,' ')
+  .split(/\s+/).filter(Boolean)}
+function align(t,h){const n=t.length,m=h.length;const dp=Array.from({length:n+1},()=>new Int16Array(m+1));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=t[i]===h[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  const ok=new Array(n).fill(false),extra=[];let i=0,j=0;
+  while(i<n&&j<m){if(t[i]===h[j]){ok[i]=true;i++;j++}else if(dp[i+1][j]>=dp[i][j+1])i++;else{extra.push(h[j]);j++}}
+  while(j<m)extra.push(h[j++]);const match=dp[0][0];
+  const score=(match===n&&m===n)?100:Math.min(99,Math.round(100*2*match/Math.max(1,n+m)));return {ok,extra,score,t,miss:t.filter((w,k)=>!ok[k])}}
+function diffHTML(r){return '<div class="diff">'+r.t.map((w,i)=>r.ok[i]?`<span class="ok">${esc(w)}</span>`:`<button class="say wbtn miss" data-say="${esc(w)}" data-rate="0.6" type="button">${esc(w)}</button>`).join(' ')+
+  (r.extra.length?`<div class="ex">多出 / 识别成：${esc(r.extra.join(' '))}</div>`:'')+'</div>'}
+
+/* ===================== UI HELPERS ===================== */
+const IC={
+ play:'<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
+ slow:'<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>',
+ mic:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+ back:'<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>',
+ chat:'<svg viewBox="0 0 24 24"><path d="M4 5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M17 9h3a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v2l-3-2h-4"/></svg>',
+ stage:'<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>',
+ book:'<svg viewBox="0 0 24 24"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-5a2 2 0 0 0-2 2"/><path d="M20 4v14h-6a2 2 0 0 0-1 .3"/></svg>',
+ spark:'<svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
+ link:'<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+ ear:'<svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 3-2 4-3 5.5S14 18 12 19.5 8 20 8 18"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-1.5 2-1.5 3"/></svg>'
+};
+let tt;function toast(m){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el)}el.textContent=m;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,3000)}
+const app=document.getElementById('app');
+function micRow(idle){return SR?`<div class="microw"><button class="mic" id="micBtn" type="button" aria-label="开始说">${IC.mic}</button><span class="lab"><b class="micstate" data-idle="${esc(idle)}">${esc(idle)}</b>英式英语识别 · 说完再点一次停止</span></div>`
+  :`<div class="warnbox">这个浏览器不支持语音识别（建议用 Chrome 或 Safari）。可以先用手机键盘上的麦克风说，结果会填进下面的框。</div>`}
+function bindSays(){app.querySelectorAll('.say').forEach(b=>b.onclick=()=>speak(b.dataset.say,{alt:!!b.dataset.alt,rate:b.dataset.rate?+b.dataset.rate:undefined}))}
+
+/* ===================== TIMER ===================== */
+let view='home',lastAct=Date.now(),secTick=0;
+['pointerdown','keydown','input'].forEach(ev=>document.addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
+setInterval(()=>{
+  if(view==='home'||document.hidden)return;
+  if(Date.now()-lastAct>180000&&!L)return;
+  const r=dayRec(ds(todayD()));r.sec++;secTick++;
+  if(r.sec===GOAL&&!r.ok){r.ok=1;save();toast('今天 30 分钟完成，已自动打卡')}
+  else if(secTick%15===0)save();
+  const el=document.getElementById('tmr');if(el)el.textContent=fmtT(r.sec);
+},1000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();stopListen()}});
+const fmtT=s=>`${Math.floor(s/60)}:${pad(s%60)}`;
+function topBar(title){const r=dayRec(ds(todayD()));return `<div class="bar-top"><button class="btn" id="backBtn" type="button">${IC.back}返回</button><b style="font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</b><span class="timer" title="今天已练">今日 <span id="tmr">${fmtT(r.sec)}</span></span></div>`}
+function bindBack(){document.getElementById('backBtn').onclick=()=>go('home')}
+function leaveView(){stopListen();try{speechSynthesis.cancel()}catch(e){}closeCam();save()}
+function go(v,arg){leaveView();view=v;window.scrollTo(0,0);if(v==='home')renderHome();else if(v==='scene')startScene(arg);else if(v==='shadow')renderShadow(arg);else if(v==='vocab')renderVocab();else if(v==='settings')renderSettings()}
+
+/* ===================== HOME ===================== */
+let curTheme=null;
+function renderHome(){
+  const t=todayD(),tk=ds(t),rec=S.days[tk]||{sec:0,ok:0};const wi=weekIndex();curTheme=T[wi.w];const th=curTheme;const p=themeProg(th);
+  const st=stats(),sk=streak();const mins=Math.floor((rec.sec||0)/60);const plan=DAYPLAN[wi.day];
+  const mon=addDays(t,-((t.getDay()+6)%7));
+  let wk='';for(let i=0;i<7;i++){const d=addDays(mon,i),k=ds(d),v=S.days[k];const c='dot'+(v&&v.ok?' ok':v&&v.sec>60?' part':'')+(k===tk?' today':'');wk+=`<div class="wd"><span>${WD[d.getDay()]}</span><div class="${c}">${v&&v.ok?'✓':d.getDate()}</div></div>`}
+  app.innerHTML=`
+  <div class="top"><h1>Speak Up · 每天 30 分钟英文表达</h1><span class="date">${t.getMonth()+1}月${t.getDate()}日 周${WD[t.getDay()]}</span></div>
+  ${!P.name?`<div class="card setup"><b>先花 30 秒设置一下</b><p class="note">对话和课文里会用你的名字和公司，AI 点评也会按你的工作背景来给建议。</p><button class="btn navy" id="goSet" type="button">去设置</button></div>`:''}
+  <div class="hero"><div class="big">${sk}</div><div class="lbl"><b>天连续练习</b><span>${sk===0?'练满 30 分钟自动打卡，开始计数':sk<7?`再坚持 ${7-sk} 天满一周`:'保持住，别断'}</span></div></div>
+  <div class="card today">
+    <div class="row1"><b>${mins} <span style="font-size:15px;font-weight:600">/ 30 分钟</span></b><span>${rec.ok?'今天已打卡':'进入练习后开始计时'}</span></div>
+    <div class="bar"><i style="width:${Math.min(100,(rec.sec||0)/GOAL*100).toFixed(1)}%"></i></div>
+    <button class="check ${rec.ok?'done':''}" id="checkBtn" type="button" ${rec.ok?'disabled':''}>${rec.ok?'✓ 今天已完成':mins>=30?'打卡':'今天在别处练过了 · 手动打卡'}</button>
+  </div>
+  <section class="sec"><h2>本周</h2><div class="week">${wk}</div></section>
+  <section class="sec"><h2>本周主题</h2>
+   <div class="card">
+    <div class="theme-head"><span class="eyebrow">第 ${wi.w+1} 周 / 共 8 周${wi.round>1?` · 第 ${wi.round} 轮`:''}</span><h3>${esc(th.en)}</h3><span class="cn">${esc(th.cn)} · ${esc(th.goal)}</span></div>
+    <div class="plan"><b>今天 · 第 ${wi.day+1} 天：${plan[0]}</b><br>${plan[1]}</div>
+    <div class="prog">
+      <span>词汇</span><div class="bar thin"><i style="width:${p.v/p.vn*100}%"></i></div><em>${p.v}/${p.vn}</em>
+      <span>对话</span><div class="bar thin"><i style="width:${p.tg/p.tn*100}%"></i></div><em>${p.tg}/${p.tn}</em>
+      <span>课文</span><div class="bar thin navy"><i style="width:${p.sg/p.sn*100}%"></i></div><em>${p.sg}/${p.sn}</em>
+    </div>
+    <div class="modes">
+      <button class="mode" id="m1" type="button"><span class="ic">${IC.chat}</span><b>模式一 · 场景对话</b><span>开会、演示、合规会议。你开口说，系统识别后纠正语法、句式、发音并给范例。</span></button>
+      <button class="mode m2" id="m2" type="button"><span class="ic">${IC.stage}</span><b>模式二 · 演讲跟读</b><span>英式发音逐句跟读打分，直到 100% 复刻，再开摄像头练表情。</span></button>
+    </div>
+    <button class="btn vocab-btn" id="vb" type="button">${IC.book}本周词汇与生词本（${p.v}/${p.vn} 已掌握${S.saved.length?` · 生词本 ${S.saved.length}`:''}）</button>
+   </div>
+  </section>
+  <section class="sec"><h2>8 周路线 · 点一下切换到该周</h2><div class="road">${T.map((x,i)=>{const pp=themeProg(x);return `<button class="wk ${i===wi.w?'cur':''}" data-w="${i}" type="button"><span class="n">${i+1}</span><span class="t">${esc(x.en)}<small>${esc(x.cn)}</small></span><div class="bar thin ${i===wi.w?'navy':''}"><i style="width:${pp.pct}%"></i></div></button>`}).join('')}</div></section>
+  <div class="stats"><div class="stat"><b>${st.best}</b><span>最长连续</span></div><div class="stat"><b>${st.total}</b><span>累计打卡天数</span></div><div class="stat"><b>${st.hours.toFixed(1)}</b><span>累计练习小时</span></div></div>
+  <div class="row"><button class="btn" id="setBtn" type="button">设置 · AI 点评 · 备份</button>${P.key?'<span class="chip hi">AI 点评已开启</span>':'<span class="chip mid">AI 点评未开启</span>'}</div>
+  <p class="note">规则：进入练习后开始计时，3 分钟无操作暂停；练满 30 分钟自动打卡。每周一个主题，8 周一轮。掌握标准：词汇勾选、对话每句 ≥85 分、课文每句 100%。数据只存在这台设备的浏览器里，记得偶尔在设置里导出备份。</p>`;
+  document.getElementById('checkBtn').onclick=()=>{const r=dayRec(tk);r.ok=1;save();toast('已打卡');renderHome()};
+  document.getElementById('m1').onclick=()=>go('scene',{theme:th,scene:wi.day===2?th.scenes[1]:th.scenes[0]});
+  document.getElementById('m2').onclick=()=>go('shadow',{theme:th});
+  document.getElementById('vb').onclick=()=>go('vocab');
+  document.getElementById('setBtn').onclick=()=>go('settings');
+  const gs=document.getElementById('goSet');if(gs)gs.onclick=()=>go('settings');
+  app.querySelectorAll('.wk').forEach(b=>b.onclick=()=>{const i=+b.dataset.w;S.start=ds(addDays(todayD(),-i*7));save();toast('已切换到第 '+(i+1)+' 周：'+T[i].cn);renderHome()});
+}
+
+/* ===================== SETTINGS ===================== */
+function renderSettings(){
+  app.innerHTML=`${topBar('设置')}
+  <div class="card"><b>关于你</b>
+    <div class="field"><label for="pName">英文名（对话里别人怎么称呼你）</label><input type="text" id="pName" value="${esc(P.name)}" placeholder="例如 Emma"></div>
+    <div class="field"><label for="pCo">公司名</label><input type="text" id="pCo" value="${esc(P.company)}" placeholder="例如 Leaf & Co"></div>
+    <div class="field"><label for="pCity">所在城市</label><input type="text" id="pCity" value="${esc(P.city)}" placeholder="例如 London"></div>
+    <div class="field"><label for="pBio">公司做什么（英文一句话，给 AI 当背景）</label><input type="text" id="pBio" value="${esc(P.bio)}" placeholder="a small UK company that imports matcha and other tea powders"></div>
+  </div>
+  <div class="card"><b>声音与录音</b>
+    <div class="field"><label for="voiceSel">朗读声音（英式）</label><select id="voiceSel"></select></div>
+    <div class="row"><button class="btn say" data-say="Good morning, everyone. Shall we make a start?" type="button">${IC.play}试听</button></div>
+    <label class="note" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="pRec" ${P.recVoice?'checked':''}>说话时同时录下我的声音，方便回放对比（部分手机不支持边识别边录，不行会自动关掉）</label>
+    <label class="note" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="pAuto" ${P.autoAfterPlay?'checked':''}>跟读时，原声播完自动开始识别</label>
+  </div>
+  <div class="card"><b>AI 点评（可选）</b>
+    <p class="note">不开也能用：跟读按识别结果逐词打分；对话按和范例的重合度打分。开启后，对话会有完整的语法、句式、发音点评和范例，还能生成新场景、点评视频表情。</p>
+    <p class="note">需要你自己的 Claude API Key（在 console.anthropic.com 创建，按用量付费，和 Claude 会员是两回事）。Key 只保存在这台设备的浏览器里，直接发给 Anthropic，不经过任何其他服务器。别在别人的电脑上填。</p>
+    <div class="field"><label for="pKey">API Key</label><input type="password" id="pKey" value="${esc(P.key)}" placeholder="sk-ant-..." autocomplete="off"></div>
+    <div class="field"><label for="pModel">模型</label><select id="pModel"><option value="claude-sonnet-5-5" ${P.model==='claude-sonnet-5-5'?'selected':''}>Claude Sonnet 5.5（点评更细，推荐）</option><option value="claude-haiku-5-5" ${P.model==='claude-haiku-5-5'?'selected':''}>Claude Haiku 5.5（更快更便宜）</option></select></div>
+    <div class="row"><button class="btn" id="testKey" type="button">测试连接</button><span class="note" id="keyMsg"></span></div>
+  </div>
+  <div class="card"><b>备份</b><p class="note">打卡、分数、生词本都只存在这台设备。换手机或清浏览器数据前，先导出备份；新设备上导入即可。</p>
+    <div class="row"><button class="btn" id="expBtn" type="button">导出备份</button><label class="btn" for="impFile">导入备份</label><input type="file" id="impFile" accept="application/json,.json" hidden></div></div>
+  <div class="row"><button class="btn solid" id="saveSet" type="button">保存设置</button></div>`;
+  bindBack();bindSays();fillVoices(document.getElementById('voiceSel'));
+  const collect=()=>{P.name=pName.value.trim();P.company=pCo.value.trim();P.city=pCity.value.trim();P.bio=pBio.value.trim();P.key=pKey.value.trim();P.model=pModel.value;P.voice=voiceSel.value;P.recVoice=pRec.checked;P.autoAfterPlay=pAuto.checked;saveP();buildContent()};
+  const $=id=>document.getElementById(id);const pName=$('pName'),pCo=$('pCo'),pCity=$('pCity'),pBio=$('pBio'),pKey=$('pKey'),pModel=$('pModel'),voiceSel=$('voiceSel'),pRec=$('pRec'),pAuto=$('pAuto');
+  voiceSel.onchange=()=>{P.voice=voiceSel.value;saveP()};
+  $('saveSet').onclick=()=>{collect();toast('已保存');go('home')};
+  $('testKey').onclick=async()=>{collect();const m=$('keyMsg');if(!P.key){m.textContent='先填 Key';return}m.textContent='连接中…';
+    try{const r=await ai('Reply with JSON {"ok":true}',{max:20});m.textContent=r&&r.ok?'连接成功':'已连接，但返回异常'}catch(e){m.textContent=e.message}};
+  $('expBtn').onclick=()=>{const blob=new Blob([JSON.stringify({app:'speakup',v:1,state:S,profile:Object.assign({},P,{key:''})},null,1)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='speakup-backup-'+ds(todayD())+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('备份已导出（不含 API Key）')};
+  $('impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const o=JSON.parse(await f.text());if(!o||o.app!=='speakup'||!o.state||!o.state.days)throw 0;
+    S=Object.assign({start:ds(todayD()),days:{},vocab:{},turns:{},sents:{},custom:{},gen:{},saved:[]},o.state);save();
+    if(o.profile){const k=P.key;Object.assign(P,o.profile);P.key=k;saveP();buildContent()}toast('已导入备份');go('home')}catch(err){toast('这个文件不是 Speak Up 的备份')}};
+}
+
+/* ===================== MODE 1: SCENE ===================== */
+let R=null;
+function startScene(arg){R={theme:arg.theme,scene:arg.scene,i:0,done:[],blind:false,fb:null,busy:false,draft:'',meta:null};renderScene();autoSpeak()}
+function allScenes(th){return th.scenes.concat(S.gen[th.id]||[])}
+function renderScene(){
+  const th=R.theme,sc=R.scene,turn=sc.turns[R.i];
+  let chat='';R.done.forEach((d,k)=>{const tu=sc.turns[k];chat+=`<div class="bub p"><div class="nm">${esc(sc.partner.name)}<button class="say" data-say="${esc(tu.p)}" data-alt="1" type="button" aria-label="播放">${IC.play}</button></div>${esc(tu.p)}</div><div class="bub me"><div class="nm">你 <span class="chip ${cls(d.score)}">${d.score}</span></div>${esc(d.ans)}</div>`});
+  let body='';
+  if(turn){
+    chat+=`<div class="bub p"><div class="nm">${esc(sc.partner.name)} · ${esc(sc.partner.role)}<button class="say" data-say="${esc(turn.p)}" data-alt="1" type="button" aria-label="播放">${IC.play}</button><button class="say" data-say="${esc(turn.p)}" data-alt="1" data-rate="0.7" type="button" aria-label="慢速播放">${IC.slow}</button></div>${esc(turn.p)}</div>`;
+    body=`${R.blind?'':`<div class="hint"><b>你要表达：</b>${esc(turn.hint)}</div>`}
+      ${R.fb?fbHTML(R.fb,turn):`<div class="card">${micRow('点红色按钮，开口回答')}
+      <label class="note" for="ans">识别结果（第 ${R.i+1}/${sc.turns.length} 句，可手动修改明显的识别错误，但发音问题别改）</label>
+      <textarea id="ans" placeholder="你说的话会出现在这里…" autocapitalize="sentences">${esc(R.draft)}</textarea>
+      ${metaHTML(R.meta)}${audioHTML()}
+      <div class="row"><button class="btn solid" id="evalBtn" type="button" ${R.busy?'disabled':''}>提交评估</button><button class="btn" id="peekBtn" type="button">我不会，先看范例</button></div>
+      <div id="evalOut"></div></div>`}`;
+  }else{
+    const avg=Math.round(R.done.reduce((a,d)=>a+d.score,0)/Math.max(1,R.done.length));
+    body=`<div class="card sum"><div class="score ${cls(avg)}"><b>${avg}</b><span>本场平均分。${avg>=85?'这个场景你已经能熟练应对了。':'再练一遍，重点看下面分数低的句子。'}</span></div>
+      ${sc.turns.map((tu,k)=>`<div class="it"><div class="row"><span class="chip ${cls(R.done[k]?R.done[k].score:0)}">${R.done[k]?R.done[k].score:'-'}</span><span class="note">范例</span><button class="say" data-say="${esc(tu.model)}" type="button" aria-label="播放">${IC.play}</button></div><div class="model">${esc(tu.model)}</div></div>`).join('')}
+      <div class="row"><button class="btn solid" id="againBtn" type="button">再练一遍</button><button class="btn" id="blindBtn" type="button">盲练（隐藏中文提示）</button><button class="btn" id="homeBtn" type="button">回首页</button></div></div>`;
+  }
+  const gens=S.gen[th.id]||[];
+  app.innerHTML=`${topBar('模式一 · '+th.cn)}
+   <div class="tabs">${th.scenes.map((s,i)=>`<button class="tab ${sc.id===s.id?'on':''}" data-s="${s.id}" type="button">场景 ${'AB'[i]}</button>`).join('')}${gens.map((s,i)=>`<button class="tab ${sc.id===s.id?'on':''}" data-s="${s.id}" type="button">AI ${i+1}</button>`).join('')}<button class="tab" id="genBtn" type="button">＋ AI 新场景</button></div>
+   <div class="scene-card"><span class="who">场景 · ${esc(sc.partner.name)}（${esc(sc.partner.role)}）</span><h3>${esc(sc.title)}</h3><p class="en">${esc(sc.desc)}</p><p class="note">${esc(sc.cn)}</p>
+     <div class="row"><button class="btn ${R.blind?'ghost-navy':''}" id="blindTg" type="button">${R.blind?'盲练中 · 显示提示':'盲练模式'}</button></div></div>
+   <div class="chat">${chat}</div>${body}`;
+  bindBack();bindSays();
+  const $=id=>document.getElementById(id);
+  app.querySelectorAll('.tab[data-s]').forEach(b=>b.onclick=()=>{const s=allScenes(th).find(x=>x.id===b.dataset.s);if(s){stopListen();R={theme:th,scene:s,i:0,done:[],blind:R.blind,fb:null,busy:false,draft:'',meta:null};renderScene();autoSpeak()}});
+  $('genBtn').onclick=genScene;
+  $('blindTg').onclick=()=>{keepDraft();R.blind=!R.blind;renderScene()};
+  const ta=$('ans');if(ta)ta.oninput=()=>{R.draft=ta.value};
+  const mb=$('micBtn');if(mb)mb.onclick=()=>listen(ta,m=>{R.draft=m.text;R.meta=m;const mm=document.querySelector('#ans + .meta');if(mm)mm.remove();ta.insertAdjacentHTML('afterend',metaHTML(m))});
+  const eb=$('evalBtn');if(eb)eb.onclick=()=>doEval();
+  const pk=$('peekBtn');if(pk)pk.onclick=()=>{stopListen();R.fb={peek:true,score:0};renderScene()};
+  const nx=$('nextBtn');if(nx)nx.onclick=()=>{R.done.push({ans:R.fb.ans||'（看了范例）',score:R.fb.score||0});R.i++;R.fb=null;R.draft='';R.meta=null;renderScene();autoSpeak()};
+  const rt=$('retryBtn');if(rt)rt.onclick=()=>{R.fb=null;R.draft='';R.meta=null;renderScene()};
+  const ag=$('againBtn');if(ag)ag.onclick=()=>{R.i=0;R.done=[];R.fb=null;renderScene();autoSpeak()};
+  const bl=$('blindBtn');if(bl)bl.onclick=()=>{R.i=0;R.done=[];R.fb=null;R.blind=true;renderScene();autoSpeak()};
+  const hb=$('homeBtn');if(hb)hb.onclick=()=>go('home');
+  app.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{const [en,cn]=JSON.parse(b.dataset.save);if(!S.saved.some(x=>x.en===en)){S.saved.unshift({en,cn,from:th.id});save()}b.textContent='已加入';b.disabled=true});
+}
+function keepDraft(){const ta=document.getElementById('ans');if(ta)R.draft=ta.value}
+function autoSpeak(){const tu=R.scene.turns[R.i];if(tu)setTimeout(()=>speak(tu.p,{alt:true}),250)}
+function fbHTML(fb,turn){
+  const listenModel=`<div class="row" style="margin-top:6px"><button class="say btn" data-say="${esc(fb.model||turn.model)}" type="button">${IC.play}听范例</button><button class="say btn" data-say="${esc(fb.model||turn.model)}" data-rate="0.75" type="button">${IC.slow}慢速</button></div>`;
+  if(fb.peek)return `<div class="card fb"><h4>参考回答</h4><div class="model">${esc(turn.model)}</div>${listenModel}<p class="note">先跟着范例读几遍，再点"再说一次"用自己的话说出来。</p><div class="row"><button class="btn solid" id="retryBtn" type="button">再说一次</button><button class="btn" id="nextBtn" type="button">跳过，下一句</button></div></div>`;
+  const g=(fb.grammar||[]).map(x=>`<div class="fix"><span class="w">${esc(x.wrong)}</span><span class="r">${esc(x.right)}</span>${x.why?`<span class="why">${esc(x.why)}</span>`:''}</div>`).join('');
+  const pr=(fb.pron||[]).map(x=>`<div class="fix"><span><span class="w">${esc(x.heard)}</span> → <span class="r">${esc(x.meant)}</span></span><span class="why">${esc(x.tip)}</span><span class="row"><button class="say btn" data-say="${esc(x.meant)}" data-rate="0.6" type="button">${IC.slow}听正确读音</button></span></div>`).join('');
+  const ph=(fb.phrases||[]).map(x=>`<div class="phr"><span>${esc(x.en)}<i>${esc(x.cn)}</i></span><button class="btn" data-save='${esc(JSON.stringify([x.en,x.cn]))}' type="button">加入生词本</button></div>`).join('');
+  return `<div class="card fb">
+   <div class="score ${cls(fb.score)}"><b>${fb.score}</b><span>${esc(fb.verdict||'')}</span></div>
+   <div><h4>你说的</h4><p style="font-family:var(--f-say)">${esc(fb.ans)}</p>${metaHTML(fb.meta)}${audioHTML()}</div>
+   ${g?`<div class="fb"><h4>语法纠正</h4>${g}</div>`:''}
+   ${fb.structure?`<div><h4>句子结构与表达</h4><p style="font-size:14px">${esc(fb.structure)}</p></div>`:''}
+   ${pr?`<div class="fb"><h4>发音提示</h4>${pr}</div>`:''}
+   ${fb.better?`<div><h4>在你原句基础上改好的版本</h4><div class="model">${esc(fb.better)}</div><div class="row" style="margin-top:6px"><button class="say btn" data-say="${esc(fb.better)}" type="button">${IC.play}听</button></div></div>`:''}
+   <div><h4>完整范例回答</h4><div class="model">${esc(fb.model||turn.model)}</div>${listenModel}</div>
+   ${ph?`<div><h4>值得记下的表达</h4>${ph}</div>`:''}
+   ${fb.local?`<p class="note">${esc(fb.local)}</p>`:''}
+   <div class="row"><button class="btn solid" id="nextBtn" type="button">${R.i+1<R.scene.turns.length?'下一句':'完成本场'}</button><button class="btn" id="retryBtn" type="button">再说一次</button></div></div>`}
+
+async function doEval(){
+  stopListen();
+  const ta=document.getElementById('ans');const ans=(ta.value||'').trim();if(ans.length<3){toast('先说一句再提交');return}
+  R.draft=ans;R.busy=true;const out=document.getElementById('evalOut');document.getElementById('evalBtn').disabled=true;
+  const th=R.theme,sc=R.scene,turn=sc.turns[R.i];let fb=null,localMsg='';
+  if(P.key){
+    out.innerHTML='<div class="loading"><span class="spin"></span>AI 正在听你的回答…</div>';
+    const history=sc.turns.slice(0,R.i).map((tu,k)=>`${sc.partner.name}: ${tu.p}\n${P.name||'Learner'}: ${R.done[k]?R.done[k].ans:''}`).join('\n');
+    const m=R.meta;const metaLine=m&&m.text===ans?`Speech data: ${wpm(ans,m.secs)||'unknown'} words per minute${m.conf?`, recogniser confidence ${Math.round(m.conf*100)}%`:''}.`:'(The text may have been edited or typed.)';
+    const prompt=`You are a warm but exacting British English business-communication coach. Your student, ${P.name||'the learner'}, is a native Mandarin speaker working at ${P.company||'a company'}, ${bio()}. She is practising spoken business English, theme: "${th.en}".
+Scenario: ${sc.desc}
+She is talking to ${sc.partner.name} (${sc.partner.role}).
+${history?'Conversation so far:\n'+history+'\n':''}${sc.partner.name} has just said: "${turn.p}"
+What she was asked to convey (Chinese brief): ${turn.hint}
+A reference answer: "${turn.model}"
+
+Her spoken answer, transcribed by a British English (en-GB) speech recogniser:
+"""${ans}"""
+${metaLine}
+
+Evaluate it. Words that look wrong or out of place in context were probably mis-recognised because of her pronunciation; use them to infer specific pronunciation problems (e.g. "sheet" for "seat" = vowel length; dropped word endings; stress). Comment on pace if it is clearly too fast or slow.
+Judge: content (did she convey the brief), grammar, sentence structure and naturalness for a British workplace, register/politeness, and use of useful business phrases. Score 0-100 (85+ = would sound natural and professional to a British colleague).
+Write all explanations in concise Simplified Chinese; keep English examples in British spelling.
+JSON shape:
+{"score":78,"verdict":"一句中文总评","grammar":[{"wrong":"exact wrong fragment","right":"corrected fragment","why":"中文原因"}],"structure":"中文：句子结构/逻辑/语气上怎么改更地道","pron":[{"heard":"recognised word","meant":"intended word","tip":"中文发音要点，可含英式音标"}],"better":"her own answer minimally corrected so it sounds natural","model":"a complete, comprehensive model answer (2-4 sentences) that conveys the brief in natural British business English","phrases":[{"en":"useful phrase","cn":"中文"}]}
+At most 4 grammar items, 3 pron items, 3 phrases.`;
+    try{const r=await ai(prompt);if(r&&typeof r.score==='number')fb=r}catch(e){localMsg=e.message+'。这次先按和范例的重合度打分。'}
+  }else localMsg='没开 AI 点评，这次按和范例的关键词重合度打分。在设置里填 API Key 可获得完整的语法和发音点评。';
+  if(!fb){const a=align(norm(turn.model),norm(ans));fb={score:Math.max(20,Math.min(80,a.score+20)),verdict:'和范例的关键词重合度',model:turn.model}}
+  fb.local=localMsg;fb.score=Math.max(0,Math.min(100,Math.round(fb.score)));fb.ans=ans;fb.meta=R.meta;
+  const key=sc.id+'-'+R.i;if(!sc.id.startsWith('g'))S.turns[key]=Math.max(S.turns[key]||0,fb.score);
+  save();R.fb=fb;R.busy=false;renderScene();
+}
+async function genScene(){
+  const th=R.theme;if(!P.key){toast('生成新场景需要在设置里开启 AI 点评');return}
+  const b=document.getElementById('genBtn');b.disabled=true;b.textContent='生成中…';
+  const prompt=`Create a new spoken-English role-play scenario for ${P.name||'the learner'}, who works at ${P.company||'a company'}, ${bio()}, mainly on compliance, quality and supplier matters. Theme of the week: "${th.en}" (${th.cn}). Make it clearly different from these existing scenarios: ${allScenes(th).map(s=>s.title+' – '+s.desc).join(' | ')}.
+Exactly 4 turns. In each turn the other person speaks first (natural British business English), then the learner replies. Give a Chinese brief of what the learner should convey, and a model reply (1-3 sentences, British spelling, using phrases typical of this theme).
+JSON shape: {"title":"中文标题","desc":"one-sentence English scene description","cn":"中文场景描述","partner":{"name":"British first name","role":"role"},"turns":[{"p":"partner line","hint":"中文提示","model":"model reply"}]}`;
+  try{const s=await ai(prompt,{max:2000});
+    if(s&&Array.isArray(s.turns)&&s.turns.length){s.id='g'+Date.now().toString(36);s.partner=s.partner||{name:'Alex',role:'Colleague'};
+      (S.gen[th.id]=S.gen[th.id]||[]).push(s);if(S.gen[th.id].length>5)S.gen[th.id].shift();save();
+      R={theme:th,scene:s,i:0,done:[],blind:R.blind,fb:null,busy:false,draft:'',meta:null};renderScene();autoSpeak();return}
+    toast('生成失败，再点一次试试')
+  }catch(e){toast(e.message)}
+  b.disabled=false;b.textContent='＋ AI 新场景';
+}
+
+/* ===================== MODE 2: SHADOW ===================== */
+let H=null;
+function renderShadow(arg){
+  if(arg&&arg.theme)H={theme:arg.theme,src:'p',stage:1,i:0,res:null,meta:null,draft:'',blur:false,armed:false,importing:false,vfb:null,videoURL:null,videoFile:null,frames:[]};
+  const th=H.theme;const custom=S.custom[th.id]||[];
+  const lines=H.src==='p'?th.passage.lines:custom;const keyOf=i=>H.src==='p'?th.id+'-p'+i:'c-'+th.id+'-'+i;
+  if(H.i>=lines.length)H.i=0;
+  const mastered=lines.filter((_,i)=>(S.sents[keyOf(i)]||0)>=100).length;
+  let stageHTML='';
+  if(H.src==='c'&&(!lines.length||H.importing)){stageHTML=importHTML(custom.join('\n'))}
+  else if(H.stage===1){
+    const line=lines[H.i];const best=S.sents[keyOf(H.i)]||0;
+    stageHTML=`<div class="sdots">${lines.map((_,i)=>{const b=S.sents[keyOf(i)]||0;return `<button class="sd ${b>=100?'ok':b>0?'part':''} ${i===H.i?'cur':''}" data-i="${i}" type="button">${i+1}</button>`}).join('')}</div>
+     <div class="card"><div class="row" style="justify-content:space-between"><span class="note">第 ${H.i+1}/${lines.length} 句 · 最好 ${best}%</span><button class="btn" id="blurBtn" type="button">${H.blur?'显示原文':'遮住原文（听写式跟读）'}</button></div>
+      <p class="line ${H.blur?'blur':''}">${esc(line)}</p>
+      <div class="row"><button class="btn navy" id="playGo" type="button">${IC.ear}听一遍然后跟读</button><button class="btn ghost-navy say" data-say="${esc(line)}" data-rate="0.95" type="button">${IC.play}原速</button><button class="btn ghost-navy say" data-say="${esc(line)}" data-rate="0.7" type="button">${IC.slow}慢速</button></div>
+      ${micRow('点红色按钮跟读这一句')}
+      <textarea id="sh" placeholder="识别结果会出现在这里…">${esc(H.draft)}</textarea>
+      ${H.res?`<div class="score ${cls(H.res.score)}"><b>${H.res.score}%</b><span>${H.res.score>=100?'完美复刻！这句已掌握。':'红色的词没被识别出来，多半是发音、重音或连读问题。点红色的词听慢速读音，再说一次。'}</span></div>${metaHTML(H.meta)}${diffHTML(H.res)}${audioHTML()}
+        ${H.res.score<100&&H.res.miss.length&&P.key?`<div class="row"><button class="btn" id="whyBtn" type="button">${IC.spark}AI 讲解这些词怎么读</button></div><div id="whyOut"></div>`:''}`:''}
+      <div class="row"><button class="btn" id="prevBtn" type="button" ${H.i===0?'disabled':''}>上一句</button><button class="btn" id="nextS" type="button">下一句</button>${H.res?'':'<button class="btn" id="chkBtn" type="button">按框里的文字检查</button>'}</div>
+     </div>`;
+  }else if(H.stage===2){
+    stageHTML=`<div class="card"><p class="note">先连续听 2 遍，再遮住原文完整复述。目标：一口气说完，停顿和重音跟原声一致。</p>
+      <div class="passage ${H.blur?'line blur':''}" style="${H.blur?'font-size:17px':''}">${lines.map((l,i)=>`<span class="${(S.sents[keyOf(i)]||0)>=100?'ok':''}">${esc(l)}</span>`).join(' ')}</div>
+      <div class="row"><button class="btn navy" id="playAll" type="button">${IC.play}连续播放</button><button class="btn ghost-navy" id="playAllSlow" type="button">${IC.slow}慢速连播</button><button class="btn" id="blurBtn" type="button">${H.blur?'显示原文':'遮住原文'}</button></div>
+      ${micRow('点红色按钮，整段复述')}
+      <textarea id="sh" placeholder="识别结果会出现在这里…" style="min-height:140px">${esc(H.draft)}</textarea>
+      ${H.res?`<div class="score ${cls(H.res.score)}"><b>${H.res.score}%</b><span>${H.res.score>=100?'整段完美复刻。可以进入视频模仿。':'看红色的词，回到逐句跟读把它们练到 100%。'}</span></div>${metaHTML(H.meta)}${diffHTML(H.res)}${audioHTML()}`:''}
+    </div>`;
+  }else{
+    stageHTML=`<div class="card"><p class="note">打开前置摄像头，像在台上一样把整段讲一遍，下面是提词。录完可以回放、保存到手机${P.key?'，并让 AI 看画面点评眼神、表情、体态和手势':''}。</p>
+      <div class="cam" id="camBox">${H.videoURL?`<video controls playsinline src="${H.videoURL}"></video>`:`<video class="live" id="live" playsinline muted autoplay hidden></video>`}<span class="rec" id="recTag" hidden>● 录制中</span></div>
+      <div class="prompter">${lines.map(esc).join('<br>')}</div>
+      <div class="row" id="camCtl">${H.videoURL?`<button class="btn" id="reRec" type="button">重录</button><button class="btn" id="saveVid" type="button">保存视频</button>${P.key?`<button class="btn solid" id="vEval" type="button">${IC.spark}AI 点评表情与体态</button>`:''}`
+        :`<button class="btn navy" id="camOn" type="button">打开摄像头</button><button class="btn solid" id="recBtn" type="button" hidden>开始录制</button><label class="btn" for="vidUp">或上传视频</label><input type="file" id="vidUp" accept="video/*" hidden>`}</div>
+      <div id="vOut">${H.vfb?vfbHTML(H.vfb):''}</div>
+      <div class="fb"><h4>自查清单（对照 TED 原视频）</h4><div class="checklist">${['眼睛看镜头，不是看稿','开口前先停顿半秒','每句有一个重音词','句末语调下降，不像在提问','表情和内容一致：讲问题时认真，讲好处时微笑','手势在胸前区域，自然打开','语速接近原声，没有赶'].map((x,i)=>`<label><input type="checkbox" id="ck${i}">${x}</label>`).join('')}</div></div>
+    </div>`;
+  }
+  const tedCard=`<div class="card ted"><span class="badge">TED</span><b>${esc(th.ted.title)}</b><span>${esc(th.ted.who)} · ${esc(th.ted.why)}</span><span class="row"><a class="btn ghost-navy" href="${th.ted.url}" target="_blank" rel="noopener">${IC.link}打开原视频</a><button class="btn" id="impBtn" type="button">导入 TED 文字稿片段</button></span></div>`;
+  app.innerHTML=`${topBar('模式二 · '+th.cn)}
+   ${tedCard}
+   <div class="tabs"><button class="tab ${H.src==='p'?'on':''}" data-src="p" type="button">本周课文 · ${esc(th.passage.title)}</button><button class="tab ${H.src==='c'?'on':''}" data-src="c" type="button">我的 TED 片段 (${custom.length})</button></div>
+   ${lines.length&&!(H.src==='c'&&H.importing)?`<div class="tabs"><button class="tab ${H.stage===1?'on':''}" data-st="1" type="button">① 逐句跟读</button><button class="tab ${H.stage===2?'on':''}" data-st="2" type="button">② 整段复述</button><button class="tab ${H.stage===3?'on':''}" data-st="3" type="button">③ 视频模仿</button></div>
+   <div class="prog"><span>已 100% 复刻</span><div class="bar thin navy"><i style="width:${mastered/lines.length*100}%"></i></div><em>${mastered}/${lines.length}</em></div>`:''}
+   ${stageHTML}
+   ${H.src==='c'&&lines.length&&!H.importing?`<div class="row"><button class="btn" id="editImp" type="button">替换片段</button><button class="btn ${H.armed?'solid-warn':'warn'}" id="delImp" type="button">${H.armed?'确认删除':'删除片段'}</button></div>`:''}`;
+  bindBack();bindSays();
+  const $=id=>document.getElementById(id);
+  const reset=()=>{H.res=null;H.meta=null;H.draft='';if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}};
+  app.querySelectorAll('.tab[data-src]').forEach(b=>b.onclick=()=>{closeCam();H.src=b.dataset.src;H.i=0;H.stage=1;H.importing=false;reset();renderShadow()});
+  app.querySelectorAll('.tab[data-st]').forEach(b=>b.onclick=()=>{closeCam();H.stage=+b.dataset.st;reset();renderShadow()});
+  app.querySelectorAll('.sd').forEach(b=>b.onclick=()=>{H.i=+b.dataset.i;reset();renderShadow();speak(lines[H.i])});
+  $('impBtn').onclick=()=>{closeCam();H.src='c';H.importing=true;renderShadow()};
+  const ta=$('sh');if(ta)ta.oninput=()=>H.draft=ta.value;
+  const bb=$('blurBtn');if(bb)bb.onclick=()=>{H.blur=!H.blur;renderShadow()};
+  const target=()=>H.stage===1?lines[H.i]:lines.join(' ');
+  const score=m=>{H.draft=m?m.text:ta.value.trim();H.meta=m||null;if(!H.draft){toast('先跟读一遍');return}
+    H.res=align(norm(target()),norm(H.draft));
+    if(H.stage===1){const k=keyOf(H.i);if(H.res.score>(S.sents[k]||0)){S.sents[k]=H.res.score;save()}}
+    else if(H.res.score>=100){lines.forEach((_,i)=>S.sents[keyOf(i)]=100);save()}
+    if(H.res.score>=100)toast('100%！');renderShadow()};
+  const mb=$('micBtn');if(mb)mb.onclick=()=>{if(!L){H.res=null;ta.value=''}listen(ta,m=>score(m))};
+  const pg=$('playGo');if(pg)pg.onclick=()=>{H.res=null;ta.value='';speak(lines[H.i],{onend:()=>{if(P.autoAfterPlay&&view==='shadow'&&H.stage===1)listen(document.getElementById('sh'),m=>score(m))}})};
+  const ck=$('chkBtn');if(ck)ck.onclick=()=>score(null);
+  const pv=$('prevBtn');if(pv)pv.onclick=()=>{stopListen();H.i=Math.max(0,H.i-1);reset();renderShadow();speak(lines[H.i])};
+  const nx=$('nextS');if(nx)nx.onclick=()=>{stopListen();H.i=(H.i+1)%lines.length;reset();renderShadow();speak(lines[H.i])};
+  const pa=$('playAll');if(pa)pa.onclick=()=>playSeq(lines,0.95);
+  const ps=$('playAllSlow');if(ps)ps.onclick=()=>playSeq(lines,0.72);
+  const wb=$('whyBtn');if(wb)wb.onclick=()=>explainMiss(lines[H.i],H.res.miss,H.draft);
+  bindCam(lines);bindImport();
+  const ed=$('editImp');if(ed)ed.onclick=()=>{H.importing=true;H.armed=false;renderShadow()};
+  const dl=$('delImp');if(dl)dl.onclick=()=>{if(!H.armed){H.armed=true;renderShadow();setTimeout(()=>{if(H&&H.armed){H.armed=false;if(view==='shadow')renderShadow()}},4000)}else{H.armed=false;custom.forEach((_,i)=>delete S.sents['c-'+th.id+'-'+i]);delete S.custom[th.id];save();H.src='p';renderShadow()}};
+}
+async function explainMiss(line,miss,heard){const out=document.getElementById('whyOut');out.innerHTML='<div class="loading"><span class="spin"></span>正在分析…</div>';
+  try{const r=await ai(`A Mandarin-speaking learner shadowed this British English sentence: "${line}"\nAn en-GB speech recogniser heard: "${heard}"\nThese target words were not recognised: ${miss.join(', ')}.\nFor each missed word (max 5), explain in concise Simplified Chinese the most likely pronunciation problem for a Chinese speaker and how to fix it, with British IPA. Also note any linking/connected speech in the sentence she should copy.\nJSON shape: {"words":[{"word":"...","ipa":"/.../","tip":"中文"}],"linking":"中文：连读/弱读要点"}`,{max:900});
+    out.innerHTML=`<div class="fb">${(r.words||[]).map(w=>`<div class="fix"><span class="r">${esc(w.word)} <span style="font-weight:400">${esc(w.ipa)}</span></span><span class="why">${esc(w.tip)}</span><span class="row"><button class="say btn" data-say="${esc(w.word)}" data-rate="0.6" type="button">${IC.slow}慢速</button></span></div>`).join('')}${r.linking?`<p class="note">${esc(r.linking)}</p>`:''}</div>`;bindSays()}
+  catch(e){out.innerHTML=`<p class="note">${esc(e.message)}</p>`}}
+function importHTML(val){return `<div class="card"><b>导入 TED 文字稿片段</b><p class="note">在 TED 页面打开 Read transcript，复制你想练的一段（建议 5–10 句，讲者语速平稳的部分），粘贴到下面。会自动拆成单句，只保存在这台设备上。</p><textarea id="impTa" style="min-height:140px" placeholder="粘贴英文文字稿…">${esc(val||'')}</textarea><div class="row"><button class="btn solid" id="impSave" type="button">拆句并保存</button>${(S.custom[H.theme.id]||[]).length?'<button class="btn" id="impCancel" type="button">取消</button>':''}</div></div>`}
+function bindImport(){const b=document.getElementById('impSave');if(!b)return;
+  const c=document.getElementById('impCancel');if(c)c.onclick=()=>{H.importing=false;renderShadow()};
+  b.onclick=()=>{const raw=document.getElementById('impTa').value.replace(/\((?:Laughter|Applause)\)/gi,' ').replace(/\s+/g,' ').trim();
+  const parts=(raw.match(/[^.!?]+[.!?]+["”’]?|[^.!?]+$/g)||[]).map(s=>s.trim()).filter(s=>s.split(' ').length>=2).slice(0,30);
+  if(!parts.length){toast('没识别到句子，检查一下粘贴的内容');return}
+  const th=H.theme;(S.custom[th.id]||[]).forEach((_,i)=>delete S.sents['c-'+th.id+'-'+i]);S.custom[th.id]=parts;save();H.src='c';H.i=0;H.stage=1;H.res=null;H.importing=false;toast('已拆成 '+parts.length+' 句');renderShadow()}}
+function playSeq(lines,rate){let i=0;const nxt=()=>{if(i>=lines.length||view!=='shadow')return;const l=lines[i++];speak(l,{rate,onend:()=>setTimeout(nxt,350)})};nxt()}
+
+/* ----- camera ----- */
+let CAM=null; // {stream, rec, chunks, frames, timer}
+function closeCam(){if(!CAM)return;try{clearInterval(CAM.timer);if(CAM.rec&&CAM.rec.state!=='inactive')CAM.rec.stop()}catch(e){}CAM.stream.getTracks().forEach(t=>t.stop());CAM=null}
+function grabLive(v){const w=v.videoWidth,h=v.videoHeight;if(!w)return null;const sc=Math.min(1,900/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*sc);c.height=Math.round(h*sc);c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c}
+function bindCam(lines){const $=id=>document.getElementById(id);
+  const on=$('camOn'),rb=$('recBtn'),live=$('live');
+  if(on)on.onclick=async()=>{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('这个浏览器打不开摄像头，可以用"上传视频"');return}
+    try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280}},audio:true});closeCam();CAM={stream:st,frames:[]};live.srcObject=st;live.hidden=false;on.hidden=true;rb.hidden=false}
+    catch(e){toast('没有摄像头权限：在浏览器地址栏的权限里允许摄像头和麦克风')}};
+  if(rb)rb.onclick=()=>{if(!CAM)return;
+    if(CAM.rec&&CAM.rec.state==='recording'){clearInterval(CAM.timer);CAM.rec.stop();return}
+    let mr;try{mr=new MediaRecorder(CAM.stream)}catch(e){toast('这个浏览器不支持录像，可以用"上传视频"');return}
+    const ch=[];CAM.rec=mr;CAM.frames=[];mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
+    mr.onstop=()=>{const blob=new Blob(ch,{type:mr.mimeType||'video/webm'});const frames=CAM.frames;closeCam();H.videoFile=blob;H.frames=frames;H.videoURL=URL.createObjectURL(blob);H.vfb=null;renderShadow()};
+    mr.start(1000);rb.textContent='停止录制';$('recTag').hidden=false;
+    CAM.timer=setInterval(()=>{const c=grabLive(live);if(c)c.toBlob(b=>{if(b&&CAM){CAM.frames.push(b);if(CAM.frames.length>24)CAM.frames.splice(1,1)}},'image/jpeg',0.82)},2500)};
+  const up=$('vidUp');if(up)up.onchange=()=>{const f=up.files[0];if(f){H.videoFile=f;H.frames=[];H.videoURL=URL.createObjectURL(f);H.vfb=null;renderShadow()}};
+  const rr=$('reRec');if(rr)rr.onclick=()=>{if(H.videoURL)URL.revokeObjectURL(H.videoURL);H.videoURL=null;H.videoFile=null;H.frames=[];H.vfb=null;renderShadow()};
+  const sv=$('saveVid');if(sv)sv.onclick=()=>{const ext=/mp4/.test(H.videoFile.type)?'mp4':'webm';const a=document.createElement('a');a.href=H.videoURL;a.download='speakup-'+ds(todayD())+'.'+ext;document.body.appendChild(a);a.click();a.remove()};
+  const ve=$('vEval');if(ve)ve.onclick=()=>videoEval(lines);
+}
+async function framesFromFile(file,n){const url=URL.createObjectURL(file);const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;
+  await new Promise(r=>{v.onloadeddata=r;v.onerror=r;setTimeout(r,6000)});let d=v.duration;if(!isFinite(d)||!d)d=8;const out=[];
+  for(let k=0;k<n;k++){await new Promise(r=>{v.onseeked=r;v.currentTime=Math.min(d-0.1,d*(k+0.5)/n);setTimeout(r,2500)});const c=grabLive(v);if(c){const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.82));if(b)out.push(b)}}
+  URL.revokeObjectURL(url);return out}
+function pickN(arr,n){if(arr.length<=n)return arr;const out=[];for(let k=0;k<n;k++)out.push(arr[Math.floor((k+0.5)*arr.length/n)]);return out}
+function vfbHTML(v){return `<div class="fb card" style="background:var(--bg)"><h4>AI 点评</h4><p style="font-size:14px">${esc(v.overall)}</p>${(v.items||[]).map(x=>`<div class="fix"><span class="r" style="font-family:var(--f-body)">${esc(x.area)} · ${esc(x.rating)}</span><span class="why">${esc(x.note)}</span></div>`).join('')}${(v.tips||[]).length?`<h4>下次录之前</h4><ul style="margin:0;padding-left:18px;font-size:14px">${v.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`}
+async function videoEval(lines){const out=document.getElementById('vOut');out.innerHTML='<div class="loading"><span class="spin"></span>正在截取画面并点评…</div>';
+  try{let frames=pickN(H.frames||[],5);if(frames.length<2)frames=await framesFromFile(H.videoFile,5);if(!frames.length)throw new Error('没能读取视频画面，换成 MP4 再试，或用下面的自查清单。');
+    const v=await ai(`These ${frames.length} images are frames, in time order, from a video of ${P.name||'a learner'} (a Mandarin-speaking professional in the UK) rehearsing this short business talk to camera:\n"${lines.join(' ')}"\nCoach her delivery like a British presentation coach: eye contact with the lens, facial expression and whether it fits the words, posture, gestures; framing or lighting only if it hurts the delivery. Be specific to what you see; kind but honest. Concise Simplified Chinese.\nJSON shape: {"overall":"一两句总评","items":[{"area":"眼神|表情|体态|手势|画面","rating":"好/一般/需改进","note":"具体观察和建议"}],"tips":["下次录之前做的 1-3 件事"]}`,{images:frames,max:1200});
+    H.vfb=v;out.innerHTML=vfbHTML(v)}
+  catch(e){out.innerHTML=`<p class="note">${esc(e.message)}</p>`}}
+
+/* ===================== VOCAB ===================== */
+function renderVocab(){
+  const th=curTheme||T[weekIndex().w];
+  app.innerHTML=`${topBar('词汇 · '+th.cn)}
+   <div class="card"><h3 style="font-size:17px">本周 8 个表达</h3><p class="note">听 → 点麦克风跟读例句 → 能自己造句了就勾"已掌握"。</p>
+   ${th.vocab.map((v,i)=>{const k=th.id+'-'+i,on=!!S.vocab[k];return `<div class="vc ${on?'known':''}"><div class="h"><b>${esc(v[0])}</b><button class="say" data-say="${esc(v[0])}" type="button" aria-label="播放">${IC.play}</button></div><span class="cn">${esc(v[1])}</span><span class="ex">${esc(v[2])} <button class="say" data-say="${esc(v[2])}" type="button" aria-label="播放例句">${IC.play}</button></span>
+     <span class="row">${SR?`<button class="btn vmic" data-i="${i}" type="button">${IC.mic}跟读例句</button>`:''}<button class="btn ${on?'solid':''}" data-k="${k}" type="button">${on?'✓ 已掌握':'标记为已掌握'}</button><span class="vres" id="vr${i}"></span></span></div>`}).join('')}
+   </div>
+   <div class="card"><h3 style="font-size:17px">生词本 (${S.saved.length})</h3>${S.saved.length?S.saved.map((x,i)=>`<div class="phr"><span>${esc(x.en)}<i>${esc(x.cn)}</i></span><span class="row"><button class="say" data-say="${esc(x.en)}" type="button" aria-label="播放">${IC.play}</button><button class="btn" data-del="${i}" type="button">移除</button></span></div>`).join(''):'<p class="note">在模式一的 AI 点评里点"加入生词本"，好的表达会收集到这里。</p>'}</div>`;
+  bindBack();bindSays();
+  app.querySelectorAll('.vmic').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;const out=document.getElementById('vr'+i);if(L){stopListen();return}
+    out.innerHTML='<span class="chip mid">在听…</span>';listen(null,m=>{const r=align(norm(th.vocab[i][2]),norm(m.text));out.innerHTML=`<span class="chip ${cls(r.score)}">${r.score}%</span>${r.miss.length?` <span class="note">没读准：${esc(r.miss.join(' '))}</span>`:''}`})});
+  app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(S.vocab[k])delete S.vocab[k];else S.vocab[k]=1;save();renderVocab()});
+  app.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.saved.splice(+b.dataset.del,1);save();renderVocab()});
+}
+
+renderHome();
+if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+})();
+</script>
+</body>
+</html>
