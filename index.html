@@ -542,36 +542,62 @@ function speak(text,opt){opt=opt||{};if(!('speechSynthesis' in window)){toast('�
   try{stopListen();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';const v=pickVoice(opt.alt);if(v)u.voice=v;u.rate=opt.rate||0.95;
     if(opt.onend){let fired=false;const f=()=>{if(!fired){fired=true;opt.onend()}};u.onend=f;u.onerror=f}
     speechSynthesis.speak(u)}catch(e){toast('朗读失败')}}
-function fillVoices(sel){const g=gb();sel.innerHTML=g.length?g.map(v=>`<option value="${esc(v.name)}" ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join(''):'<option value="">这台设备没有英式声音，将用默认英语</option>'}
+function fillVoices(sel){const g=gb();sel.innerHTML=g.length?g.map(v=>`<option value="${esc(v.name)}" ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join(''):'<option value="">这台设备没有英式声音，将用默认英语</option>';
+  const n=document.getElementById('ttsNote');if(n)n.hidden=!!g.length&&('speechSynthesis' in window)}
 
 /* ===================== SPEECH RECOGNITION + VOICE RECORDING ===================== */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let L=null; // active listening session
 let myAudioURL=null;
+const IS_MOBILE=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+if(IS_MOBILE&&P.recVoice){P.recVoice=false;saveP()}
+function diag(msg,bad){document.querySelectorAll('.micdiag').forEach(el=>{el.textContent=msg;el.style.color=bad?'var(--slip)':'var(--muted)'})}
+const SR_ERR={
+ 'not-allowed':'麦克风被拒绝了：点地址栏左边的图标 → 权限 → 麦克风选"允许"，再刷新页面。',
+ 'service-not-allowed':'手机的语音识别服务不让 Chrome 用：手机设置里搜"语音输入"或"语音识别服务"，改成 Google；或先用键盘上的麦克风说。',
+ 'audio-capture':'拿不到麦克风：可能别的 App 正在用麦克风（通话、录音、小爱同学），关掉后再试。',
+ 'network':'语音识别要联网，检查网络后再试。',
+ 'no-speech':'没听到声音。点红色按钮后等"麦克风已打开"出现再开口，离手机近一点。',
+ 'language-not-supported':'英式英语识别不可用，已自动改用美式英语，再点一次。',
+ 'aborted':'识别被中断了，再点一次。'};
+let srLang='en-GB';
 function listen(ta,onDone){
   if(!SR){toast('这个浏览器不支持语音识别，请用 Chrome 或 Safari，或用键盘麦克风输入');return}
-  if(L){stopListen();return}
+  if(L){L.stopped=true;stopListen();return}
   try{speechSynthesis.cancel()}catch(e){}
-  const r=new SR();r.lang='en-GB';r.interimResults=true;r.continuous=true;r.maxAlternatives=1;
-  const s={r,final:'',tFirst:0,tLast:0,confs:[],err:null,onDone,ta};L=s;
   if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}
-  r.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];const now=performance.now();if(!s.tFirst)s.tFirst=now;s.tLast=now;
-      if(res.isFinal){s.final+=(s.final?' ':'')+res[0].transcript.trim();if(res[0].confidence>0)s.confs.push(res[0].confidence)}else interim+=res[0].transcript}
-    if(s.ta){s.ta.value=(s.final+' '+interim).trim()}};
-  r.onerror=e=>{s.err=e.error;
-    if(e.error==='not-allowed'||e.error==='service-not-allowed')toast('麦克风没有授权：在浏览器地址栏的权限里允许麦克风');
-    else if(e.error==='audio-capture'){if(P.recVoice){P.recVoice=false;saveP();toast('这台设备不能边识别边录音，已关闭"同时录音"，请再点一次')}else toast('找不到麦克风')}
-    else if(e.error==='network')toast('语音识别需要联网');
-    else if(e.error==='no-speech')toast('没听到声音，再试一次')};
-  r.onend=()=>{if(L!==s)return;L=null;stopRecorder();setMicUI();
-    const text=s.ta?s.ta.value.trim():s.final;const span=s.tFirst&&s.tLast?(s.tLast-s.tFirst)/1000:0;const secs=span>1.5?span+0.6:0;
+  const s={final:'',tFirst:0,tLast:0,confs:[],err:null,onDone,ta,stopped:false,got:false,rounds:0,t0:Date.now()};L=s;
+  if(ta)ta.value='';
+  const run=()=>{
+    const r=new SR();r.lang=srLang;r.interimResults=true;r.maxAlternatives=1;
+    r.continuous=!IS_MOBILE; // Android Chrome is only reliable one utterance at a time; we restart it ourselves
+    s.r=r;s.got=false;s.rounds++;
+    r.onstart=()=>diag('已启动，等待麦克风…');
+    r.onaudiostart=()=>diag('麦克风已打开，请开始说');
+    r.onspeechstart=()=>diag('听到你在说话…');
+    r.onresult=e=>{s.got=true;let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];const now=performance.now();if(!s.tFirst)s.tFirst=now;s.tLast=now;
+        if(res.isFinal){s.final+=(s.final?' ':'')+res[0].transcript.trim();if(res[0].confidence>0)s.confs.push(res[0].confidence)}else interim+=res[0].transcript}
+      const txt=(s.final+' '+interim).trim();if(s.ta)s.ta.value=txt;diag('识别中：'+txt.slice(-60))};
+    r.onerror=e=>{s.err=e.error;if(e.error==='no-speech'&&s.final)return;
+      if(e.error==='language-not-supported'&&srLang!=='en-US'){srLang='en-US'}
+      diag(SR_ERR[e.error]||('识别出错：'+e.error),true)};
+    r.onend=()=>{if(L!==s)return;
+      const fatal=s.err&&s.err!=='no-speech';
+      // keep listening across pauses on mobile until she taps stop (max 2 min)
+      if(!s.stopped&&!fatal&&IS_MOBILE&&s.got&&Date.now()-s.t0<120000){s.err=null;try{run();return}catch(e){}}
+      finish()};
+    r.start();
+  };
+  const finish=()=>{L=null;stopRecorder();setMicUI();
+    const text=(s.ta?s.ta.value:s.final).trim();const span=s.tFirst&&s.tLast?(s.tLast-s.tFirst)/1000:0;const secs=span>1.5?span+0.6:0;
     const conf=s.confs.length?s.confs.reduce((a,b)=>a+b,0)/s.confs.length:0;
-    if(s.onDone&&text)s.onDone({text,secs,conf})};
-  try{r.start()}catch(e){L=null;toast('语音识别启动失败');return}
+    if(text){diag('识别完成');if(s.onDone)s.onDone({text,secs,conf})}
+    else if(!s.err)diag('这次没有识别到文字。如果一直这样，请看下面的"识别没反应"说明，或先用键盘麦克风说。',true)};
+  try{run()}catch(e){L=null;diag('语音识别启动失败：'+e.message,true);return}
   if(P.recVoice)startRecorder();
   setMicUI();
 }
-function stopListen(){if(L){try{L.r.stop()}catch(e){}}}
+function stopListen(){if(L){L.stopped=true;try{L.r.stop()}catch(e){}}}
 function setMicUI(){document.querySelectorAll('.mic').forEach(b=>{b.classList.toggle('on',!!L);b.setAttribute('aria-label',L?'停止':'开始说')});
   document.querySelectorAll('.micstate').forEach(el=>el.textContent=L?'正在听…说完点一下停止':el.dataset.idle||'点红色按钮开始说')}
 let MR=null;
@@ -631,7 +657,8 @@ const IC={
 };
 let tt;function toast(m){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el)}el.textContent=m;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,3000)}
 const app=document.getElementById('app');
-function micRow(idle){return SR?`<div class="microw"><button class="mic" id="micBtn" type="button" aria-label="开始说">${IC.mic}</button><span class="lab"><b class="micstate" data-idle="${esc(idle)}">${esc(idle)}</b>英式英语识别 · 说完再点一次停止</span></div>`
+function micRow(idle){return SR?`<div class="microw"><button class="mic" id="micBtn" type="button" aria-label="开始说">${IC.mic}</button><span class="lab"><b class="micstate" data-idle="${esc(idle)}">${esc(idle)}</b>英式英语识别 · 说完再点一次停止</span></div><div class="micdiag note" aria-live="polite"></div>
+  <details class="note"><summary>识别没反应？</summary>1. 一定要在 Chrome 里打开（不是小米浏览器）。<br>2. 点地址栏左边的图标 → 权限 → 麦克风 允许。<br>3. 手机 设置 → 搜索"语音输入"或"语音识别服务" → 选 Google；没有的话在 Play 商店装 Google 和 Speech Recognition &amp; Synthesis。<br>4. 关掉小爱同学等正在用麦克风的 App。<br>5. 临时办法：点输入框，用键盘上的麦克风说，说完点"提交评估"或"按框里的文字检查"。</details>`
   :`<div class="warnbox">这个浏览器不支持语音识别（建议用 Chrome 或 Safari）。可以先用手机键盘上的麦克风说，结果会填进下面的框。</div>`}
 function bindSays(){app.querySelectorAll('.say').forEach(b=>b.onclick=()=>speak(b.dataset.say,{alt:!!b.dataset.alt,rate:b.dataset.rate?+b.dataset.rate:undefined}))}
 
@@ -654,6 +681,16 @@ function leaveView(){stopListen();try{speechSynthesis.cancel()}catch(e){}closeCa
 function go(v,arg){leaveView();view=v;window.scrollTo(0,0);if(v==='home')renderHome();else if(v==='scene')startScene(arg);else if(v==='shadow')renderShadow(arg);else if(v==='vocab')renderVocab();else if(v==='settings')renderSettings()}
 
 /* ===================== HOME ===================== */
+function browserWarn(){
+  const noTTS=!('speechSynthesis' in window),noSR=!SR,inApp=/MiuiBrowser|XiaoMi|HeyTapBrowser|VivoBrowser|UCBrowser|QQBrowser|MicroMessenger|HuaweiBrowser|SamsungBrowser/i.test(navigator.userAgent);
+  if(!noTTS&&!noSR&&!inApp)return '';
+  const and=/Android/i.test(navigator.userAgent);
+  return `<div class="card warnbox" style="border:0"><b>这个浏览器${noSR||noTTS?'用不了语音功能':'可能用不了语音识别'}</b>
+   <span>${and?'请用 Google Chrome 打开本页：点下面按钮复制网址，到 Chrome 地址栏粘贴打开。':'请用 Safari 或 Chrome 打开本页。'}</span>
+   <code style="word-break:break-all;font-size:12px">${esc(location.href.split('#')[0])}</code>
+   <span class="row"><button class="btn" id="copyUrl" type="button">复制网址</button></span></div>`}
+function bindWarn(){const b=document.getElementById('copyUrl');if(!b)return;b.onclick=async()=>{const u=location.href.split('#')[0];try{await navigator.clipboard.writeText(u);toast('已复制，去 Chrome 粘贴打开')}catch(e){const c=b.closest('.card').querySelector('code');const r=document.createRange();r.selectNodeContents(c);const sel=getSelection();sel.removeAllRanges();sel.addRange(r);toast('长按选中的网址复制')}}}
+
 let curTheme=null;
 function renderHome(){
   const t=todayD(),tk=ds(t),rec=S.days[tk]||{sec:0,ok:0};const wi=weekIndex();curTheme=T[wi.w];const th=curTheme;const p=themeProg(th);
@@ -662,6 +699,7 @@ function renderHome(){
   let wk='';for(let i=0;i<7;i++){const d=addDays(mon,i),k=ds(d),v=S.days[k];const c='dot'+(v&&v.ok?' ok':v&&v.sec>60?' part':'')+(k===tk?' today':'');wk+=`<div class="wd"><span>${WD[d.getDay()]}</span><div class="${c}">${v&&v.ok?'✓':d.getDate()}</div></div>`}
   app.innerHTML=`
   <div class="top"><h1>Speak Up · 每天 30 分钟英文表达</h1><span class="date">${t.getMonth()+1}月${t.getDate()}日 周${WD[t.getDay()]}</span></div>
+  ${browserWarn()}
   ${!P.name?`<div class="card setup"><b>先花 30 秒设置一下</b><p class="note">对话和课文里会用你的名字和公司，AI 点评也会按你的工作背景来给建议。</p><button class="btn navy" id="goSet" type="button">去设置</button></div>`:''}
   <div class="hero"><div class="big">${sk}</div><div class="lbl"><b>天连续练习</b><span>${sk===0?'练满 30 分钟自动打卡，开始计数':sk<7?`再坚持 ${7-sk} 天满一周`:'保持住，别断'}</span></div></div>
   <div class="card today">
@@ -690,6 +728,7 @@ function renderHome(){
   <div class="stats"><div class="stat"><b>${st.best}</b><span>最长连续</span></div><div class="stat"><b>${st.total}</b><span>累计打卡天数</span></div><div class="stat"><b>${st.hours.toFixed(1)}</b><span>累计练习小时</span></div></div>
   <div class="row"><button class="btn" id="setBtn" type="button">设置 · AI 点评 · 备份</button>${P.key?'<span class="chip hi">AI 点评已开启</span>':'<span class="chip mid">AI 点评未开启</span>'}</div>
   <p class="note">规则：进入练习后开始计时，3 分钟无操作暂停；练满 30 分钟自动打卡。每周一个主题，8 周一轮。掌握标准：词汇勾选、对话每句 ≥85 分、课文每句 100%。数据只存在这台设备的浏览器里，记得偶尔在设置里导出备份。</p>`;
+  bindWarn();
   document.getElementById('checkBtn').onclick=()=>{const r=dayRec(tk);r.ok=1;save();toast('已打卡');renderHome()};
   document.getElementById('m1').onclick=()=>go('scene',{theme:th,scene:wi.day===2?th.scenes[1]:th.scenes[0]});
   document.getElementById('m2').onclick=()=>go('shadow',{theme:th});
@@ -710,8 +749,9 @@ function renderSettings(){
   </div>
   <div class="card"><b>声音与录音</b>
     <div class="field"><label for="voiceSel">朗读声音（英式）</label><select id="voiceSel"></select></div>
+    <div class="warnbox" id="ttsNote" hidden><b>没有英式声音怎么办（安卓）</b><br>1. 在 Play 商店安装 <b>Speech Recognition &amp; Synthesis</b>（Google 出品，也叫 Speech Services by Google）。<br>2. 手机 设置 → 搜索"文字转语音" → 首选引擎选 Google → 语言选 English (United Kingdom)，下载语音数据。<br>3. 回到 Chrome 刷新本页。</div>
     <div class="row"><button class="btn say" data-say="Good morning, everyone. Shall we make a start?" type="button">${IC.play}试听</button></div>
-    <label class="note" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="pRec" ${P.recVoice?'checked':''}>说话时同时录下我的声音，方便回放对比（部分手机不支持边识别边录，不行会自动关掉）</label>
+    <label class="note" style="display:flex;gap:8px;align-items:flex-start" ${IS_MOBILE?'hidden':''}><input type="checkbox" id="pRec" ${P.recVoice?'checked':''}>说话时同时录下我的声音，方便回放对比（部分手机不支持边识别边录，不行会自动关掉）</label>
     <label class="note" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="pAuto" ${P.autoAfterPlay?'checked':''}>跟读时，原声播完自动开始识别</label>
   </div>
   <div class="card"><b>AI 点评（可选）</b>
@@ -725,7 +765,7 @@ function renderSettings(){
     <div class="row"><button class="btn" id="expBtn" type="button">导出备份</button><label class="btn" for="impFile">导入备份</label><input type="file" id="impFile" accept="application/json,.json" hidden></div></div>
   <div class="row"><button class="btn solid" id="saveSet" type="button">保存设置</button></div>`;
   bindBack();bindSays();fillVoices(document.getElementById('voiceSel'));
-  const collect=()=>{P.name=pName.value.trim();P.company=pCo.value.trim();P.city=pCity.value.trim();P.bio=pBio.value.trim();P.key=pKey.value.trim();P.model=pModel.value;P.voice=voiceSel.value;P.recVoice=pRec.checked;P.autoAfterPlay=pAuto.checked;saveP();buildContent()};
+  const collect=()=>{P.name=pName.value.trim();P.company=pCo.value.trim();P.city=pCity.value.trim();P.bio=pBio.value.trim();P.key=pKey.value.trim();P.model=pModel.value;P.voice=voiceSel.value;P.recVoice=IS_MOBILE?false:pRec.checked;P.autoAfterPlay=pAuto.checked;saveP();buildContent()};
   const $=id=>document.getElementById(id);const pName=$('pName'),pCo=$('pCo'),pCity=$('pCity'),pBio=$('pBio'),pKey=$('pKey'),pModel=$('pModel'),voiceSel=$('voiceSel'),pRec=$('pRec'),pAuto=$('pAuto');
   voiceSel.onchange=()=>{P.voice=voiceSel.value;saveP()};
   $('saveSet').onclick=()=>{collect();toast('已保存');go('home')};
@@ -871,7 +911,7 @@ function renderShadow(arg){
       <textarea id="sh" placeholder="识别结果会出现在这里…">${esc(H.draft)}</textarea>
       ${H.res?`<div class="score ${cls(H.res.score)}"><b>${H.res.score}%</b><span>${H.res.score>=100?'完美复刻！这句已掌握。':'红色的词没被识别出来，多半是发音、重音或连读问题。点红色的词听慢速读音，再说一次。'}</span></div>${metaHTML(H.meta)}${diffHTML(H.res)}${audioHTML()}
         ${H.res.score<100&&H.res.miss.length&&P.key?`<div class="row"><button class="btn" id="whyBtn" type="button">${IC.spark}AI 讲解这些词怎么读</button></div><div id="whyOut"></div>`:''}`:''}
-      <div class="row"><button class="btn" id="prevBtn" type="button" ${H.i===0?'disabled':''}>上一句</button><button class="btn" id="nextS" type="button">下一句</button>${H.res?'':'<button class="btn" id="chkBtn" type="button">按框里的文字检查</button>'}</div>
+      <div class="row"><button class="btn" id="prevBtn" type="button" ${H.i===0?'disabled':''}>上一句</button><button class="btn" id="nextS" type="button">下一句</button><button class="btn" id="chkBtn" type="button">按框里的文字检查</button></div>
      </div>`;
   }else if(H.stage===2){
     stageHTML=`<div class="card"><p class="note">先连续听 2 遍，再遮住原文完整复述。目标：一口气说完，停顿和重音跟原声一致。</p>
@@ -879,6 +919,7 @@ function renderShadow(arg){
       <div class="row"><button class="btn navy" id="playAll" type="button">${IC.play}连续播放</button><button class="btn ghost-navy" id="playAllSlow" type="button">${IC.slow}慢速连播</button><button class="btn" id="blurBtn" type="button">${H.blur?'显示原文':'遮住原文'}</button></div>
       ${micRow('点红色按钮，整段复述')}
       <textarea id="sh" placeholder="识别结果会出现在这里…" style="min-height:140px">${esc(H.draft)}</textarea>
+      <div class="row"><button class="btn" id="chkBtn" type="button">按框里的文字检查</button></div>
       ${H.res?`<div class="score ${cls(H.res.score)}"><b>${H.res.score}%</b><span>${H.res.score>=100?'整段完美复刻。可以进入视频模仿。':'看红色的词，回到逐句跟读把它们练到 100%。'}</span></div>${metaHTML(H.meta)}${diffHTML(H.res)}${audioHTML()}`:''}
     </div>`;
   }else{
