@@ -208,6 +208,22 @@ input[type=text],input[type=password]{width:100%;font:inherit;font-size:15px;col
 .field label{font-size:13px;color:var(--muted)}
 .setup{border-color:var(--navy);background:var(--navy-soft)}
 .warnbox{font-size:13px;background:var(--amber-soft);border-radius:12px;padding:10px 12px}
+.recrow{display:flex;align-items:center;gap:14px}
+.recrow .lab{font-size:13px;color:var(--muted);min-width:0;display:flex;flex-direction:column;gap:2px}
+.recrow .lab b{color:var(--ink);font-size:15px}
+.recmsg{font-variant-numeric:tabular-nums}
+.recmsg.bad{color:var(--slip)}
+audio.mine{width:100%;height:40px}
+.bub audio.mine{min-width:200px}
+.rate{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.vframe{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
+.vframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.aspect{display:flex;flex-direction:column;gap:4px;padding:8px 0;border-bottom:1px solid var(--line)}
+.aspect .why{font-size:13px;color:var(--muted)}
+.aibox summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px;display:flex;gap:6px;align-items:center}
+.aibox summary svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.aibox[open]{display:flex;flex-direction:column;gap:8px}
+h4.h4{margin:0 0 4px;font-size:12px;letter-spacing:.12em;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.mic.on{animation:none;outline:4px solid var(--slip)}}
 </style>
 </head>
@@ -539,133 +555,74 @@ function gb(){const g=voices.filter(v=>/^en[-_]GB/i.test(v.lang));const pref=['D
   g.sort((a,b)=>{const ia=pref.findIndex(p=>a.name.includes(p)),ib=pref.findIndex(p=>b.name.includes(p));return (ia<0?99:ia)-(ib<0?99:ib)});return g}
 function pickVoice(alt){const g=gb();const chosen=g.find(v=>v.name===P.voice);if(!alt)return chosen||g[0]||null;const main=chosen||g[0];return g.find(v=>v!==main)||main||null}
 function speak(text,opt){opt=opt||{};if(!('speechSynthesis' in window)){toast('这个浏览器不支持朗读');opt.onend&&opt.onend();return}
-  try{stopListen();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';const v=pickVoice(opt.alt);if(v)u.voice=v;u.rate=opt.rate||0.95;
+  try{if(RS)stopRec();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';const v=pickVoice(opt.alt);if(v)u.voice=v;u.rate=opt.rate||0.95;
     if(opt.onend){let fired=false;const f=()=>{if(!fired){fired=true;opt.onend()}};u.onend=f;u.onerror=f}
     speechSynthesis.speak(u)}catch(e){toast('朗读失败')}}
 function fillVoices(sel){const g=gb();sel.innerHTML=g.length?g.map(v=>`<option value="${esc(v.name)}" ${v.name===P.voice?'selected':''}>${esc(v.name)}</option>`).join(''):'<option value="">这台设备没有英式声音，将用默认英语</option>';
   const n=document.getElementById('ttsNote');if(n)n.hidden=!!g.length&&('speechSynthesis' in window)}
 
-/* ===================== SPEECH RECOGNITION + VOICE RECORDING ===================== */
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let L=null; // active listening session
-let myAudioURL=null;
+/* ===================== VOICE RECORDING (no speech recognition) ===================== */
 const IS_MOBILE=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-if(IS_MOBILE&&P.recVoice){P.recVoice=false;saveP()}
-function diag(msg,bad){document.querySelectorAll('.micdiag').forEach(el=>{el.textContent=msg;el.style.color=bad?'var(--slip)':'var(--muted)'})}
-const SR_ERR={
- 'not-allowed':'麦克风被拒绝了：点地址栏左边的图标 → 权限 → 麦克风选"允许"，再刷新页面。',
- 'service-not-allowed':'手机的语音识别服务不让 Chrome 用：手机设置里搜"语音输入"或"语音识别服务"，改成 Google；或先用键盘上的麦克风说。',
- 'audio-capture':'拿不到麦克风：可能别的 App 正在用麦克风（通话、录音、小爱同学），关掉后再试。',
- 'network':'语音识别要联网，检查网络后再试。',
- 'no-speech':'没听到声音。点红色按钮后等"麦克风已打开"出现再开口，离手机近一点。',
- 'language-not-supported':'英式英语识别不可用，已自动改用美式英语，再点一次。',
- 'aborted':'识别被中断了，再点一次。'};
-let srLang='en-GB';
+const canRec=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+const REC={};          // key -> {url, secs}
+let RS=null;           // active recording {key, mr, st, t0, timer, onDone}
+function pickMime(kind){const list=kind==='video'?['video/mp4','video/webm;codecs=vp8,opus','video/webm']:['audio/mp4','audio/webm;codecs=opus','audio/webm'];
+  for(const m of list){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''}
+/* IndexedDB: keep recordings after the page is closed */
+let _db=null;
+function idb(){if(_db)return _db;_db=new Promise((res,rej)=>{try{const q=indexedDB.open('speakup-rec',1);q.onupgradeneeded=()=>q.result.createObjectStore('rec');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)}catch(e){rej(e)}});return _db}
+async function idbPut(k,v){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('rec','readwrite');t.objectStore('rec').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error)})}catch(e){}}
+async function idbGet(k){try{const db=await idb();return await new Promise(res=>{const q=db.transaction('rec').objectStore('rec').get(k);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)})}catch(e){return null}}
+async function getRec(k){if(REC[k])return REC[k];const v=await idbGet(k);if(v&&v.blob){REC[k]={url:URL.createObjectURL(v.blob),secs:v.secs||0};return REC[k]}return null}
+const fmtS=s=>`${Math.floor(s/60)}:${pad(Math.floor(s%60))}`;
 
-/* ---------- on-device Whisper engine (works without any phone speech service) ---------- */
-const useWhisper=()=>P.engine==='whisper'||(P.engine!=='browser'&&(!SR||P.srBroken));
-let WK=null,wReady=false,wJobs={},wSeq=0;
-function whisperWorker(){
-  if(WK)return WK;
-  const code=`import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.5';
-env.allowLocalModels=false;
-let asr=null,loading=null;
-async function load(model){if(asr)return asr;if(!loading)loading=pipeline('automatic-speech-recognition',model,{dtype:'q8',device:'wasm',progress_callback:p=>{if(p.status==='progress'&&p.total)self.postMessage({type:'progress',file:p.file,loaded:p.loaded,total:p.total})}});asr=await loading;return asr}
-self.onmessage=async e=>{const d=e.data;try{const m=await load(d.model);if(d.type==='load'){self.postMessage({type:'ready'});return}
-  const out=await m(d.audio,{chunk_length_s:30,stride_length_s:5});self.postMessage({type:'result',id:d.id,text:(out&&out.text||'').trim()})}
-  catch(err){self.postMessage({type:'error',id:d.id,message:String(err&&err.message||err)})}};`;
-  WK=new Worker(URL.createObjectURL(new Blob([code],{type:'text/javascript'})),{type:'module'});
-  const files={};
-  WK.onmessage=e=>{const d=e.data;
-    if(d.type==='progress'){files[d.file]=[d.loaded,d.total];let a=0,b=0;Object.values(files).forEach(([x,y])=>{a+=x;b+=y});
-      if(!wReady)diag(`首次使用：正在下载识别模型 ${Math.round(a/1048576)}/${Math.round(b/1048576)} MB（只需下载一次，之后离线可用）`)}
-    else if(d.type==='ready'){wReady=true}
-    else if(d.type==='result'||d.type==='error'){wReady=wReady||d.type==='result';const j=wJobs[d.id];delete wJobs[d.id];if(j)(d.type==='result'?j.res(d.text):j.rej(new Error(d.message)))}};
-  WK.onerror=e=>{diag('识别模型加载失败：'+(e.message||'请检查网络后刷新'),true);Object.values(wJobs).forEach(j=>j.rej(new Error('worker')));wJobs={};WK=null};
-  WK.postMessage({type:'load',model:P.wmodel});
-  return WK;
-}
-function transcribe(audio){return new Promise((res,rej)=>{const id=++wSeq;wJobs[id]={res,rej};whisperWorker().postMessage({type:'run',id,audio,model:P.wmodel},[audio.buffer])})}
-async function to16k(blob){const ac=new (window.AudioContext||window.webkitAudioContext)();const dec=await ac.decodeAudioData(await blob.arrayBuffer());try{ac.close()}catch(e){}
-  const off=new OfflineAudioContext(1,Math.max(1,Math.ceil(dec.duration*16000)),16000);const src=off.createBufferSource();src.buffer=dec;src.connect(off.destination);src.start();
-  const r=await off.startRendering();return {audio:r.getChannelData(0).slice(),secs:dec.duration}}
-async function listenWhisper(ta,onDone){
-  if(!navigator.mediaDevices||!window.MediaRecorder){diag('这个浏览器不能录音，请用 Chrome。',true);return}
+async function startRec(key,onDone,maxSec){
+  if(RS){const same=RS.key===key;stopRec();if(same)return}
+  if(!canRec){toast('这个浏览器不能录音，请用 Chrome 打开');return}
   try{speechSynthesis.cancel()}catch(e){}
-  const s={whisper:true,stopped:false,discard:false,ta,onDone,t0:Date.now()};L=s;setMicUI();
-  whisperWorker();
-  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
-  catch(e){L=null;setMicUI();diag(SR_ERR['not-allowed'],true);return}
-  if(L!==s){st.getTracks().forEach(t=>t.stop());return}
-  if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}
-  const mr=new MediaRecorder(st);const ch=[];s.mr=mr;
+  stopAllAudio();
+  let st;
+  try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+  catch(e){recMsg(key,'没有麦克风权限：点地址栏左边的图标 → 权限 → 麦克风选"允许"，然后刷新。',true);return}
+  const mime=pickMime('audio');let mr;
+  try{mr=mime?new MediaRecorder(st,{mimeType:mime}):new MediaRecorder(st)}catch(e){try{mr=new MediaRecorder(st)}catch(e2){st.getTracks().forEach(t=>t.stop());recMsg(key,'这台设备不支持录音。',true);return}}
+  const ch=[];const s={key,mr,st,t0:Date.now(),onDone};RS=s;
   mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
-  s.timer=setInterval(()=>{const t=Math.round((Date.now()-s.t0)/1000);if(!s.stopped)diag(`录音中 ${Math.floor(t/60)}:${pad(t%60)} · 说完点一下红色按钮停止`);if(t>=120)stopListen()},500);
-  mr.onstop=async()=>{clearInterval(s.timer);st.getTracks().forEach(t=>t.stop());L=null;setMicUI();
-    if(s.discard||!ch.length)return;
-    const blob=new Blob(ch,{type:mr.mimeType||'audio/webm'});myAudioURL=URL.createObjectURL(blob);
-    document.querySelectorAll('.myaudio').forEach(a=>{a.src=myAudioURL;a.hidden=false});
-    diag(wReady?'正在识别…':'正在识别…（第一次要先加载模型，稍等）');
-    try{const {audio,secs}=await to16k(blob);if(secs<0.6){diag('录得太短了，再说一次。',true);return}
-      const text=(await transcribe(audio)).replace(/\[.*?\]|\(.*?\)/g,' ').replace(/\s+/g,' ').trim();
-      if(!text){diag('没听清，靠近手机再说一次。',true);return}
-      if(s.ta)s.ta.value=text;diag('识别完成（本机识别）');if(s.onDone)s.onDone({text,secs,conf:0})}
-    catch(e){diag('识别失败：'+e.message+'。可以先用键盘麦克风说进框里。',true)}};
-  mr.start(250);diag('录音中 0:00 · 说完点一下红色按钮停止');
+  mr.onstop=()=>{clearInterval(s.timer);st.getTracks().forEach(t=>t.stop());if(RS===s)RS=null;
+    const secs=(Date.now()-s.t0)/1000;
+    if(s.discard){recUI();return}
+    if(!ch.length||secs<0.4){recUI();recMsg(key,'没录到声音，再试一次。',true);return}
+    const blob=new Blob(ch,{type:mr.mimeType||mime||'audio/webm'});
+    if(REC[key])URL.revokeObjectURL(REC[key].url);
+    REC[key]={url:URL.createObjectURL(blob),secs};idbPut(key,{blob,secs});
+    recUI();recMsg(key,`已录好 ${fmtS(secs)}，可以回放和对比。`);
+    if(s.onDone)s.onDone(REC[key])};
+  mr.onerror=()=>{recMsg(key,'录音出错了，再试一次。',true)};
+  mr.start(250);
+  s.timer=setInterval(()=>{const t=(Date.now()-s.t0)/1000;recMsg(key,`● 录音中 ${fmtS(t)}　说完再点一下按钮停止`);if(maxSec&&t>=maxSec)stopRec()},250);
+  recUI();recMsg(key,'● 录音中 0:00　说完再点一下按钮停止');
 }
-function listen(ta,onDone){
-  if(L){stopListen();return}
-  if(useWhisper())return listenWhisper(ta,onDone);
-  try{speechSynthesis.cancel()}catch(e){}
-  if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}
-  const s={final:'',tFirst:0,tLast:0,confs:[],err:null,onDone,ta,stopped:false,got:false,rounds:0,t0:Date.now()};L=s;
-  if(ta)ta.value='';
-  const run=()=>{
-    const r=new SR();r.lang=srLang;r.interimResults=true;r.maxAlternatives=1;
-    r.continuous=!IS_MOBILE; // Android Chrome is only reliable one utterance at a time; we restart it ourselves
-    s.r=r;s.got=false;s.rounds++;
-    r.onstart=()=>diag('已启动，等待麦克风…');
-    r.onaudiostart=()=>diag('麦克风已打开，请开始说');
-    r.onspeechstart=()=>diag('听到你在说话…');
-    r.onresult=e=>{s.got=true;let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];const now=performance.now();if(!s.tFirst)s.tFirst=now;s.tLast=now;
-        if(res.isFinal){s.final+=(s.final?' ':'')+res[0].transcript.trim();if(res[0].confidence>0)s.confs.push(res[0].confidence)}else interim+=res[0].transcript}
-      const txt=(s.final+' '+interim).trim();if(s.ta)s.ta.value=txt;diag('识别中：'+txt.slice(-60))};
-    r.onerror=e=>{s.err=e.error;if(e.error==='no-speech'&&s.final)return;
-      if(e.error==='language-not-supported'&&srLang!=='en-US'){srLang='en-US'}
-      diag(SR_ERR[e.error]||('识别出错：'+e.error),true)};
-    r.onend=()=>{if(L!==s)return;
-      const fatal=s.err&&s.err!=='no-speech';
-      // keep listening across pauses on mobile until she taps stop (max 2 min)
-      if(!s.stopped&&!fatal&&IS_MOBILE&&s.got&&Date.now()-s.t0<120000){s.err=null;try{run();return}catch(e){}}
-      finish()};
-    r.start();
-  };
-  const finish=()=>{L=null;stopRecorder();setMicUI();
-    const text=(s.ta?s.ta.value:s.final).trim();const span=s.tFirst&&s.tLast?(s.tLast-s.tFirst)/1000:0;const secs=span>1.5?span+0.6:0;
-    const conf=s.confs.length?s.confs.reduce((a,b)=>a+b,0)/s.confs.length:0;
-    if(text){diag('识别完成');if(s.onDone)s.onDone({text,secs,conf})}
-    else if(!s.err||s.err==='no-speech'||s.err==='service-not-allowed'||s.err==='network'){
-      if(P.engine==='auto'){P.srBroken=true;saveP();diag('这台手机的浏览器识别没有返回结果，已自动切换到"本机识别"。请再点一次红色按钮说。',true)}
-      else if(!s.err)diag('这次没有识别到文字。可以在设置里把识别方式改成"本机识别"。',true)}};
-  try{run()}catch(e){L=null;diag('语音识别启动失败：'+e.message,true);return}
-  if(P.recVoice)startRecorder();
-  setMicUI();
+function stopRec(discard){if(!RS)return;if(discard)RS.discard=true;try{if(RS.mr.state!=='inactive')RS.mr.stop();else{clearInterval(RS.timer);RS.st.getTracks().forEach(t=>t.stop());RS=null;recUI()}}catch(e){RS=null;recUI()}}
+function recMsg(key,msg,bad){document.querySelectorAll('.recmsg').forEach(el=>{if(el.dataset.key===key){el.textContent=msg;el.classList.toggle('bad',!!bad)}})}
+/* paint record buttons + attach my recordings to players */
+function recUI(){
+  document.querySelectorAll('.recbtn').forEach(b=>{const on=RS&&RS.key===b.dataset.key;b.classList.toggle('on',!!on);b.setAttribute('aria-label',on?'停止录音':'开始录音')});
+  document.querySelectorAll('.recbtn-lbl').forEach(el=>{const on=RS&&RS.key===el.dataset.key;el.textContent=on?'点一下停止':(el.dataset.idle||'点一下开始录音')});
+  document.querySelectorAll('[data-needrec]').forEach(el=>{el.disabled=!REC[el.dataset.needrec]});
+  document.querySelectorAll('audio.mine').forEach(async a=>{const k=a.dataset.key;const r=REC[k]||await getRec(k);if(r){if(a.src!==r.url)a.src=r.url;a.hidden=false;document.querySelectorAll(`[data-needrec="${CSS.escape(k)}"]`).forEach(el=>el.disabled=false)}else a.hidden=true});
 }
-function stopListen(discard){if(!L)return;L.stopped=true;if(discard)L.discard=true;if(L.whisper){if(L.mr&&L.mr.state!=='inactive')L.mr.stop();else{clearInterval(L.timer);L=null;setMicUI()}}else{try{L.r.stop()}catch(e){}}}
-function setMicUI(){document.querySelectorAll('.mic').forEach(b=>{b.classList.toggle('on',!!L);b.setAttribute('aria-label',L?'停止':'开始说')});
-  document.querySelectorAll('.micstate').forEach(el=>el.textContent=L?'正在听…说完点一下停止':el.dataset.idle||'点红色按钮开始说')}
-let MR=null;
-async function startRecorder(){if(!navigator.mediaDevices||!window.MediaRecorder)return;
-  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});if(!L){st.getTracks().forEach(t=>t.stop());return}
-    const mr=new MediaRecorder(st);const ch=[];mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
-    mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());if(!ch.length)return;myAudioURL=URL.createObjectURL(new Blob(ch,{type:mr.mimeType||'audio/webm'}));
-      document.querySelectorAll('.myaudio').forEach(a=>{a.src=myAudioURL;a.hidden=false})};
-    mr.start();MR=mr}catch(e){}}
-function stopRecorder(){if(MR&&MR.state!=='inactive'){try{MR.stop()}catch(e){}}MR=null}
-const wpm=(text,secs)=>secs>0?Math.round(text.split(/\s+/).filter(Boolean).length/secs*60):0;
-function metaHTML(m){if(!m)return '';const out=[];const w=wpm(m.text,m.secs);if(w)out.push(`语速 ${w} 词/分钟${w>175?' · 偏快':w<95?' · 偏慢':''}`);if(m.conf)out.push(`识别把握 ${Math.round(m.conf*100)}%`);
-  return out.length?`<div class="meta">${out.map(x=>`<span>${x}</span>`).join('')}</div>`:''}
-const audioHTML=()=>`<audio class="myaudio" controls ${myAudioURL?`src="${myAudioURL}"`:'hidden'}></audio>`;
+function recBlock(key,idle,extra){return `<div class="recrow"><button class="mic recbtn" data-key="${esc(key)}" type="button" aria-label="开始录音">${IC.mic}</button>
+  <span class="lab"><b class="recbtn-lbl" data-key="${esc(key)}" data-idle="${esc(idle)}">${esc(idle)}</b><span class="recmsg" data-key="${esc(key)}" aria-live="polite">${extra||(REC[key]?`已录好 ${fmtS(REC[key].secs)}，可以回放、对比或重录`:'')}</span></span></div>
+  <audio class="mine" data-key="${esc(key)}" controls preload="metadata" hidden></audio>`}
+/* play the British reference voice, then my recording */
+let playing=null;
+function stopAllAudio(){document.querySelectorAll('audio').forEach(a=>{try{a.pause()}catch(e){}});playing=null}
+function playMine(key,after){const r=REC[key];if(!r){toast('先录一遍');return}const a=document.querySelector(`audio.mine[data-key="${CSS.escape(key)}"]`)||new Audio(r.url);
+  if(!a.src)a.src=r.url;try{a.currentTime=0}catch(e){}a.onended=()=>{a.onended=null;after&&after()};playing=a;a.play().catch(()=>toast('点一下播放器上的播放键'))}
+function compare(text,key,rate){if(!REC[key]){toast('先录一遍再对比');return}stopAllAudio();
+  speak(text,{rate:rate||0.95,onend:()=>setTimeout(()=>playMine(key),400)})}
+function bindRec(){app.querySelectorAll('.recbtn').forEach(b=>b.onclick=()=>{const k=b.dataset.key;const cb=REC_CB[k];startRec(k,cb&&cb.done,cb&&cb.max)});recUI()}
+const REC_CB={};
 
 /* ===================== CLAUDE API (optional, user's own key) ===================== */
 async function blobB64(b){return await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(b)})}
@@ -679,22 +636,6 @@ async function ai(prompt,opt){opt=opt||{};if(!P.key)return null;
   if(!res.ok){let msg='';try{const j=await res.json();msg=j.error&&j.error.message||''}catch(e){}
     const err=new Error(res.status===401?'API Key 无效，请到设置里检查':res.status===429?'调用太频繁或额度不足，稍后再试':res.status===400&&/credit/i.test(msg)?'API 账户余额不足，请到 console.anthropic.com 充值':('AI 请求失败（'+res.status+'）'+msg.slice(0,120)));throw err}
   const j=await res.json();const txt=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('');const v=parseJSON(txt);if(v==null)throw new Error('AI 返回格式有误，再试一次');return v}
-
-/* ===================== DIFF ===================== */
-const NUM='zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split(' ');
-const TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
-const nw=n=>{n=+n;if(n<20)return NUM[n];if(n<100)return TENS[Math.floor(n/10)]+(n%10?' '+NUM[n%10]:'');return String(n)};
-function norm(s){return String(s).toLowerCase().replace(/[’‘`]/g,"'").replace(/(\d+)\s*%/g,'$1 per cent').replace(/\bpercent\b/g,'per cent')
-  .replace(/(\d+):(\d{2})/g,'$1 $2').replace(/\d+/g,d=>+d<100?nw(d):d).replace(/-/g,' ').replace(/'/g,'').replace(/[^a-z0-9 ]+/g,' ')
-  .split(/\s+/).filter(Boolean)}
-function align(t,h){const n=t.length,m=h.length;const dp=Array.from({length:n+1},()=>new Int16Array(m+1));
-  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=t[i]===h[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
-  const ok=new Array(n).fill(false),extra=[];let i=0,j=0;
-  while(i<n&&j<m){if(t[i]===h[j]){ok[i]=true;i++;j++}else if(dp[i+1][j]>=dp[i][j+1])i++;else{extra.push(h[j]);j++}}
-  while(j<m)extra.push(h[j++]);const match=dp[0][0];
-  const score=(match===n&&m===n)?100:Math.min(99,Math.round(100*2*match/Math.max(1,n+m)));return {ok,extra,score,t,miss:t.filter((w,k)=>!ok[k])}}
-function diffHTML(r){return '<div class="diff">'+r.t.map((w,i)=>r.ok[i]?`<span class="ok">${esc(w)}</span>`:`<button class="say wbtn miss" data-say="${esc(w)}" data-rate="0.6" type="button">${esc(w)}</button>`).join(' ')+
-  (r.extra.length?`<div class="ex">多出 / 识别成：${esc(r.extra.join(' '))}</div>`:'')+'</div>'}
 
 /* ===================== UI HELPERS ===================== */
 const IC={
@@ -711,9 +652,6 @@ const IC={
 };
 let tt;function toast(m){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el)}el.textContent=m;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,3000)}
 const app=document.getElementById('app');
-function micRow(idle){return (SR||window.MediaRecorder)?`<div class="microw"><button class="mic" id="micBtn" type="button" aria-label="开始说">${IC.mic}</button><span class="lab"><b class="micstate" data-idle="${esc(idle)}">${esc(idle)}</b>${useWhisper()?'本机识别（Whisper）':'浏览器识别（英式）'} · 说完再点一次停止</span></div><div class="micdiag note" aria-live="polite"></div>
-  <details class="note"><summary>识别没反应？</summary>1. 一定要在 Chrome 里打开（不是小米浏览器）。<br>2. 点地址栏左边的图标 → 权限 → 麦克风 允许。<br>3. 手机 设置 → 搜索"语音输入"或"语音识别服务" → 选 Google；没有的话在 Play 商店装 Google 和 Speech Recognition &amp; Synthesis。<br>4. 关掉小爱同学等正在用麦克风的 App。<br>5. 到 设置 → 识别方式，改成"本机识别"。<br>6. 临时办法：点输入框，用键盘上的麦克风说，说完点"提交评估"或"按框里的文字检查"。</details>`
-  :`<div class="warnbox">这个浏览器不支持语音识别（建议用 Chrome 或 Safari）。可以先用手机键盘上的麦克风说，结果会填进下面的框。</div>`}
 function bindSays(){app.querySelectorAll('.say').forEach(b=>b.onclick=()=>speak(b.dataset.say,{alt:!!b.dataset.alt,rate:b.dataset.rate?+b.dataset.rate:undefined}))}
 
 /* ===================== TIMER ===================== */
@@ -721,25 +659,25 @@ let view='home',lastAct=Date.now(),secTick=0;
 ['pointerdown','keydown','input'].forEach(ev=>document.addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
 setInterval(()=>{
   if(view==='home'||document.hidden)return;
-  if(Date.now()-lastAct>180000&&!L)return;
+  if(Date.now()-lastAct>180000&&!RS&&!(CAM&&CAM.rec))return;
   const r=dayRec(ds(todayD()));r.sec++;secTick++;
   if(r.sec===GOAL&&!r.ok){r.ok=1;save();toast('今天 30 分钟完成，已自动打卡')}
   else if(secTick%15===0)save();
   const el=document.getElementById('tmr');if(el)el.textContent=fmtT(r.sec);
 },1000);
-document.addEventListener('visibilitychange',()=>{if(document.hidden){save();stopListen()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save()}});
 const fmtT=s=>`${Math.floor(s/60)}:${pad(s%60)}`;
 function topBar(title){const r=dayRec(ds(todayD()));return `<div class="bar-top"><button class="btn" id="backBtn" type="button">${IC.back}返回</button><b style="font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</b><span class="timer" title="今天已练">今日 <span id="tmr">${fmtT(r.sec)}</span></span></div>`}
 function bindBack(){document.getElementById('backBtn').onclick=()=>go('home')}
-function leaveView(){stopListen(true);try{speechSynthesis.cancel()}catch(e){}closeCam();save()}
+function leaveView(){stopRec(true);stopAllAudio();try{speechSynthesis.cancel()}catch(e){}closeCam();save()}
 function go(v,arg){leaveView();view=v;window.scrollTo(0,0);if(v==='home')renderHome();else if(v==='scene')startScene(arg);else if(v==='shadow')renderShadow(arg);else if(v==='vocab')renderVocab();else if(v==='settings')renderSettings()}
 
 /* ===================== HOME ===================== */
 function browserWarn(){
-  const noTTS=!('speechSynthesis' in window),noSR=!SR,inApp=/MiuiBrowser|XiaoMi|HeyTapBrowser|VivoBrowser|UCBrowser|QQBrowser|MicroMessenger|HuaweiBrowser|SamsungBrowser/i.test(navigator.userAgent);
+  const noTTS=!('speechSynthesis' in window),noSR=!canRec,inApp=/MiuiBrowser|XiaoMi|HeyTapBrowser|VivoBrowser|UCBrowser|QQBrowser|MicroMessenger|HuaweiBrowser|SamsungBrowser/i.test(navigator.userAgent);
   if(!noTTS&&!noSR&&!inApp)return '';
   const and=/Android/i.test(navigator.userAgent);
-  return `<div class="card warnbox" style="border:0"><b>这个浏览器${noSR||noTTS?'用不了语音功能':'可能用不了语音识别'}</b>
+  return `<div class="card warnbox" style="border:0"><b>这个浏览器${noSR||noTTS?'用不了录音或朗读':'可能用不了录音'}</b>
    <span>${and?'请用 Google Chrome 打开本页：点下面按钮复制网址，到 Chrome 地址栏粘贴打开。':'请用 Safari 或 Chrome 打开本页。'}</span>
    <code style="word-break:break-all;font-size:12px">${esc(location.href.split('#')[0])}</code>
    <span class="row"><button class="btn" id="copyUrl" type="button">复制网址</button></span></div>`}
@@ -772,8 +710,8 @@ function renderHome(){
       <span>课文</span><div class="bar thin navy"><i style="width:${p.sg/p.sn*100}%"></i></div><em>${p.sg}/${p.sn}</em>
     </div>
     <div class="modes">
-      <button class="mode" id="m1" type="button"><span class="ic">${IC.chat}</span><b>模式一 · 场景对话</b><span>开会、演示、合规会议。你开口说，系统识别后纠正语法、句式、发音并给范例。</span></button>
-      <button class="mode m2" id="m2" type="button"><span class="ic">${IC.stage}</span><b>模式二 · 演讲跟读</b><span>英式发音逐句跟读打分，直到 100% 复刻，再开摄像头练表情。</span></button>
+      <button class="mode" id="m1" type="button"><span class="ic">${IC.chat}</span><b>模式一 · 场景对话</b><span>开会、演示、合规会议。听对方说，录下你的回答，和范例对比着听。</span></button>
+      <button class="mode m2" id="m2" type="button"><span class="ic">${IC.stage}</span><b>模式二 · 演讲跟读</b><span>逐句录音跟读，和英式原声对比；再看 TED 短视频录像模仿，AI 打分。</span></button>
     </div>
     <button class="btn vocab-btn" id="vb" type="button">${IC.book}本周词汇与生词本（${p.v}/${p.vn} 已掌握${S.saved.length?` · 生词本 ${S.saved.length}`:''}）</button>
    </div>
@@ -801,23 +739,13 @@ function renderSettings(){
     <div class="field"><label for="pCity">所在城市</label><input type="text" id="pCity" value="${esc(P.city)}" placeholder="例如 London"></div>
     <div class="field"><label for="pBio">公司做什么（英文一句话，给 AI 当背景）</label><input type="text" id="pBio" value="${esc(P.bio)}" placeholder="a small UK company that imports matcha and other tea powders"></div>
   </div>
-  <div class="card"><b>声音与录音</b>
+  <div class="card"><b>朗读声音</b>
     <div class="field"><label for="voiceSel">朗读声音（英式）</label><select id="voiceSel"></select></div>
     <div class="warnbox" id="ttsNote" hidden><b>没有英式声音怎么办（安卓）</b><br>1. 在 Play 商店安装 <b>Speech Recognition &amp; Synthesis</b>（Google 出品，也叫 Speech Services by Google）。<br>2. 手机 设置 → 搜索"文字转语音" → 首选引擎选 Google → 语言选 English (United Kingdom)，下载语音数据。<br>3. 回到 Chrome 刷新本页。</div>
     <div class="row"><button class="btn say" data-say="Good morning, everyone. Shall we make a start?" type="button">${IC.play}试听</button></div>
-    <label class="note" style="display:flex;gap:8px;align-items:flex-start" ${IS_MOBILE?'hidden':''}><input type="checkbox" id="pRec" ${P.recVoice?'checked':''}>说话时同时录下我的声音，方便回放对比（部分手机不支持边识别边录，不行会自动关掉）</label>
-    <div class="field"><label for="pEng">识别方式</label><select id="pEng">
-      <option value="auto" ${P.engine==='auto'?'selected':''}>自动（浏览器识别不行就换本机识别）</option>
-      <option value="browser" ${P.engine==='browser'?'selected':''}>浏览器识别（更严格，能抓发音问题，部分手机不支持）</option>
-      <option value="whisper" ${P.engine==='whisper'?'selected':''}>本机识别 Whisper（所有手机都能用，首次下载模型）</option></select>
-      <span class="note">当前在用：${useWhisper()?'本机识别':'浏览器识别'}</span></div>
-    <div class="field"><label for="pWm">本机识别模型</label><select id="pWm">
-      <option value="Xenova/whisper-base.en" ${P.wmodel==='Xenova/whisper-base.en'?'selected':''}>标准（约 75MB，更准）</option>
-      <option value="Xenova/whisper-tiny.en" ${P.wmodel==='Xenova/whisper-tiny.en'?'selected':''}>轻量（约 40MB，更快）</option></select></div>
-    <label class="note" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="pAuto" ${P.autoAfterPlay?'checked':''}>跟读时，原声播完自动开始识别</label>
-  </div>
+    </div>
   <div class="card"><b>AI 点评（可选）</b>
-    <p class="note">不开也能用：跟读按识别结果逐词打分；对话按和范例的重合度打分。开启后，对话会有完整的语法、句式、发音点评和范例，还能生成新场景、点评视频表情。</p>
+    <p class="note">不开也能用：录音、回放、和原声对比都不需要 Key。开启后可以：把你说的话打进框里让 AI 纠正语法和用词；生成新场景；给你的模仿视频按眼神、表情、体态、手势等打分。</p>
     <p class="note">需要你自己的 Claude API Key（在 console.anthropic.com 创建，按用量付费，和 Claude 会员是两回事）。Key 只保存在这台设备的浏览器里，直接发给 Anthropic，不经过任何其他服务器。别在别人的电脑上填。</p>
     <div class="field"><label for="pKey">API Key</label><input type="password" id="pKey" value="${esc(P.key)}" placeholder="sk-ant-..." autocomplete="off"></div>
     <div class="field"><label for="pModel">模型</label><select id="pModel"><option value="claude-sonnet-5-5" ${P.model==='claude-sonnet-5-5'?'selected':''}>Claude Sonnet 5.5（点评更细，推荐）</option><option value="claude-haiku-5-5" ${P.model==='claude-haiku-5-5'?'selected':''}>Claude Haiku 5.5（更快更便宜）</option></select></div>
@@ -827,8 +755,8 @@ function renderSettings(){
     <div class="row"><button class="btn" id="expBtn" type="button">导出备份</button><label class="btn" for="impFile">导入备份</label><input type="file" id="impFile" accept="application/json,.json" hidden></div></div>
   <div class="row"><button class="btn solid" id="saveSet" type="button">保存设置</button></div>`;
   bindBack();bindSays();fillVoices(document.getElementById('voiceSel'));
-  const collect=()=>{P.name=pName.value.trim();P.company=pCo.value.trim();P.city=pCity.value.trim();P.bio=pBio.value.trim();P.key=pKey.value.trim();P.model=pModel.value;P.voice=voiceSel.value;P.recVoice=IS_MOBILE?false:pRec.checked;P.autoAfterPlay=pAuto.checked;const ne=document.getElementById('pEng').value,nm=document.getElementById('pWm').value;if(ne!==P.engine)P.srBroken=false;P.engine=ne;if(nm!==P.wmodel&&WK){WK.terminate();WK=null;wReady=false}P.wmodel=nm;saveP();buildContent()};
-  const $=id=>document.getElementById(id);const pName=$('pName'),pCo=$('pCo'),pCity=$('pCity'),pBio=$('pBio'),pKey=$('pKey'),pModel=$('pModel'),voiceSel=$('voiceSel'),pRec=$('pRec'),pAuto=$('pAuto');
+  const collect=()=>{P.name=pName.value.trim();P.company=pCo.value.trim();P.city=pCity.value.trim();P.bio=pBio.value.trim();P.key=pKey.value.trim();P.model=pModel.value;P.voice=voiceSel.value;saveP();buildContent()};
+  const $=id=>document.getElementById(id);const pName=$('pName'),pCo=$('pCo'),pCity=$('pCity'),pBio=$('pBio'),pKey=$('pKey'),pModel=$('pModel'),voiceSel=$('voiceSel');
   voiceSel.onchange=()=>{P.voice=voiceSel.value;saveP()};
   $('saveSet').onclick=()=>{collect();toast('已保存');go('home')};
   $('testKey').onclick=async()=>{collect();const m=$('keyMsg');if(!P.key){m.textContent='先填 Key';return}m.textContent='连接中…';
@@ -840,27 +768,59 @@ function renderSettings(){
     if(o.profile){const k=P.key;Object.assign(P,o.profile);P.key=k;saveP();buildContent()}toast('已导入备份');go('home')}catch(err){toast('这个文件不是 Speak Up 的备份')}};
 }
 
+/* ===================== WEEKLY PRESENTATION VIDEOS (all under 10 min, British speakers) ===================== */
+const TEDV={
+ t1:{slug:'julian_treasure_how_to_speak_so_that_people_want_to_listen',who:'Julian Treasure',title:'How to speak so that people want to listen',len:'9:58',why:'英国声音专家。看他怎么用音调、语速、停顿，把一个话题讲得让人想听下去。'},
+ t2:{slug:'mark_forsyth_what_s_a_snollygoster_a_short_lesson_in_political_speak',who:'Mark Forsyth',title:"What's a snollygoster? A short lesson in political speak",len:'约 6 分钟',why:'在英国议会大厦做的 TEDx。学他怎么用措辞表态，礼貌地表达不同意，还带着幽默。'},
+ t3:{slug:'chris_anderson_ted_s_secret_to_great_public_speaking',who:'Chris Anderson',title:"TED's secret to great public speaking",len:'约 8 分钟',why:'TED 掌门人亲自讲：一场好演讲就是把一个想法讲清楚。最适合学产品演示的结构。'},
+ t4:{slug:'andy_puddicombe_all_it_takes_is_10_mindful_minutes',who:'Andy Puddicombe',title:'All it takes is 10 mindful minutes',len:'约 9 分钟',why:'英国讲者。学他怎么把一个抽象概念讲得平静、清楚、有条理，很适合技术或合规讲解。'},
+ t5:{slug:'julian_treasure_the_4_ways_sound_affects_us',who:'Julian Treasure',title:'The 4 ways sound affects us',len:'约 6 分钟',why:'结构是"四点论"，每点都有例子，适合模仿谈判时怎么分点陈述。'},
+ t6:{slug:'james_veitch_this_is_what_happens_when_you_reply_to_spam_email',who:'James Veitch',title:'This is what happens when you reply to spam email',len:'约 10 分钟',why:'英式幽默，节奏和停顿是教科书级的。学他面对难缠的人怎么保持镇定和风趣。'},
+ t7:{slug:'julian_treasure_5_ways_to_listen_better',who:'Julian Treasure',title:'5 ways to listen better',len:'7:51',why:'讲倾听。语速适中、发音清楚，很适合一句句模仿。'},
+ t8:{slug:'julian_treasure_how_to_speak_so_that_people_want_to_listen',who:'Julian Treasure',title:'How to speak so that people want to listen',len:'9:58',why:'毕业周：回到第 1 周的视频，再录一遍，和 8 周前的自己比一比。'}
+};
+function tedOf(th){const o=S.vid&&S.vid[th.id];return o?{slug:o,who:'自选视频',title:o.replace(/_/g,' '),len:'',why:'你自己换的视频。'}:(TEDV[th.id]||TEDV.t1)}
+const tedURL=v=>'https://www.ted.com/talks/'+v.slug;
+const tedEmbed=v=>'https://embed.ted.com/talks/'+v.slug;
+function slugFrom(u){const m=String(u).match(/ted\.com\/talks\/([A-Za-z0-9_]+)/);return m?m[1]:null}
+function rateRow(cur,opts,attr){return `<div class="rate">${opts.map(([v,l])=>`<button class="btn ${cur===v?'solid':''}" ${attr}="${v}" type="button">${l}</button>`).join('')}</div>`}
+
 /* ===================== MODE 1: SCENE ===================== */
 let R=null;
-function startScene(arg){R={theme:arg.theme,scene:arg.scene,i:0,done:[],blind:false,fb:null,busy:false,draft:'',meta:null};renderScene();autoSpeak()}
+function startScene(arg){R={theme:arg.theme,scene:arg.scene,i:0,done:[],blind:false,fb:null,busy:false,draft:'',rated:null};renderScene();autoSpeak()}
 function allScenes(th){return th.scenes.concat(S.gen[th.id]||[])}
+const tKey=()=>'t|'+R.scene.id+'|'+R.i;
 function renderScene(){
   const th=R.theme,sc=R.scene,turn=sc.turns[R.i];
-  let chat='';R.done.forEach((d,k)=>{const tu=sc.turns[k];chat+=`<div class="bub p"><div class="nm">${esc(sc.partner.name)}<button class="say" data-say="${esc(tu.p)}" data-alt="1" type="button" aria-label="播放">${IC.play}</button></div>${esc(tu.p)}</div><div class="bub me"><div class="nm">你 <span class="chip ${cls(d.score)}">${d.score}</span></div>${esc(d.ans)}</div>`});
+  let chat='';R.done.forEach((d,k)=>{const tu=sc.turns[k];chat+=`<div class="bub p"><div class="nm">${esc(sc.partner.name)}<button class="say" data-say="${esc(tu.p)}" data-alt="1" type="button" aria-label="播放">${IC.play}</button></div>${esc(tu.p)}</div><div class="bub me"><div class="nm">你 <span class="chip ${cls(d.score)}">${d.label}</span></div><audio class="mine" data-key="${esc('t|'+sc.id+'|'+k)}" controls preload="metadata" hidden></audio></div>`});
   let body='';
   if(turn){
+    const key=tKey();const has=!!REC[key];
     chat+=`<div class="bub p"><div class="nm">${esc(sc.partner.name)} · ${esc(sc.partner.role)}<button class="say" data-say="${esc(turn.p)}" data-alt="1" type="button" aria-label="播放">${IC.play}</button><button class="say" data-say="${esc(turn.p)}" data-alt="1" data-rate="0.7" type="button" aria-label="慢速播放">${IC.slow}</button></div>${esc(turn.p)}</div>`;
     body=`${R.blind?'':`<div class="hint"><b>你要表达：</b>${esc(turn.hint)}</div>`}
-      ${R.fb?fbHTML(R.fb,turn):`<div class="card">${micRow('点红色按钮，开口回答')}
-      <label class="note" for="ans">识别结果（第 ${R.i+1}/${sc.turns.length} 句，可手动修改明显的识别错误，但发音问题别改）</label>
-      <textarea id="ans" placeholder="你说的话会出现在这里…" autocapitalize="sentences">${esc(R.draft)}</textarea>
-      ${metaHTML(R.meta)}${audioHTML()}
-      <div class="row"><button class="btn solid" id="evalBtn" type="button" ${R.busy?'disabled':''}>提交评估</button><button class="btn" id="peekBtn" type="button">我不会，先看范例</button></div>
-      <div id="evalOut"></div></div>`}`;
+     <div class="card">
+      <span class="note">第 ${R.i+1}/${sc.turns.length} 句 · 先自己说，录完再看范例</span>
+      ${recBlock(key,'点红色按钮，说出你的回答')}
+      ${has||R.showModel?`<div><h4 class="h4">范例回答</h4><div class="model">${esc(turn.model)}</div></div>`:''}
+      <div class="row">
+        <button class="btn ghost-navy say" data-say="${esc(turn.model)}" type="button">${IC.play}听范例</button>
+        <button class="btn ghost-navy say" data-say="${esc(turn.model)}" data-rate="0.75" type="button">${IC.slow}慢速范例</button>
+        <button class="btn navy" id="cmpBtn" data-needrec="${esc(key)}" type="button" ${has?'':'disabled'}>${IC.ear}对比：范例 → 我的</button>
+        ${has||R.showModel?'':'<button class="btn" id="showModel" type="button">我不会，先看范例</button>'}
+      </div>
+      ${has?`<div><span class="note">听完对比，你觉得自己说得怎么样？</span>${rateRow(R.rated,[[90,'说得顺'],[70,'卡了几次'],[40,'没说出来']],'data-rt')}</div>`:''}
+      <details class="aibox" ${R.fb||R.busy?'open':''}><summary>${IC.spark} 想要 AI 纠正语法和用词？（可选）</summary>
+        <p class="note">把你刚才说的话打进框里（可以用键盘上的麦克风），AI 会纠正语法、句子结构，并给出更地道的说法。${P.key?'':'需要先在设置里填 API Key。'}</p>
+        <textarea id="ans" placeholder="把你说的英文打在这里…">${esc(R.draft)}</textarea>
+        <div class="row"><button class="btn solid" id="evalBtn" type="button" ${R.busy||!P.key?'disabled':''}>AI 点评</button></div>
+        <div id="evalOut">${R.busy?'<div class="loading"><span class="spin"></span>AI 正在看你的回答…</div>':R.fb?fbHTML(R.fb,turn):''}</div>
+      </details>
+      <div class="row"><button class="btn solid" id="nextBtn" type="button">${R.i+1<sc.turns.length?'下一句':'完成本场'}</button></div>
+     </div>`;
   }else{
-    const avg=Math.round(R.done.reduce((a,d)=>a+d.score,0)/Math.max(1,R.done.length));
-    body=`<div class="card sum"><div class="score ${cls(avg)}"><b>${avg}</b><span>本场平均分。${avg>=85?'这个场景你已经能熟练应对了。':'再练一遍，重点看下面分数低的句子。'}</span></div>
-      ${sc.turns.map((tu,k)=>`<div class="it"><div class="row"><span class="chip ${cls(R.done[k]?R.done[k].score:0)}">${R.done[k]?R.done[k].score:'-'}</span><span class="note">范例</span><button class="say" data-say="${esc(tu.model)}" type="button" aria-label="播放">${IC.play}</button></div><div class="model">${esc(tu.model)}</div></div>`).join('')}
+    const sc2=R.done.filter(d=>d.score);const avg=sc2.length?Math.round(sc2.reduce((a,d)=>a+d.score,0)/sc2.length):0;
+    body=`<div class="card sum"><div class="score ${cls(avg)}"><b>${avg||'-'}</b><span>本场自评平均分。${avg>=85?'这个场景你已经能熟练应对了。':'再练一遍，先听自己的录音，再听范例。'}</span></div>
+      ${sc.turns.map((tu,k)=>`<div class="it"><div class="row"><span class="chip ${cls(R.done[k]?R.done[k].score:0)}">${R.done[k]?R.done[k].label:'-'}</span><span class="note">范例</span><button class="say" data-say="${esc(tu.model)}" type="button" aria-label="播放">${IC.play}</button></div><div class="model">${esc(tu.model)}</div><span class="note">我的录音</span><audio class="mine" data-key="${esc('t|'+sc.id+'|'+k)}" controls preload="metadata" hidden></audio></div>`).join('')}
       <div class="row"><button class="btn solid" id="againBtn" type="button">再练一遍</button><button class="btn" id="blindBtn" type="button">盲练（隐藏中文提示）</button><button class="btn" id="homeBtn" type="button">回首页</button></div></div>`;
   }
   const gens=S.gen[th.id]||[];
@@ -870,223 +830,221 @@ function renderScene(){
      <div class="row"><button class="btn ${R.blind?'ghost-navy':''}" id="blindTg" type="button">${R.blind?'盲练中 · 显示提示':'盲练模式'}</button></div></div>
    <div class="chat">${chat}</div>${body}`;
   bindBack();bindSays();
+  if(turn)REC_CB[tKey()]={done:()=>{R.showModel=true;keepDraft();renderScene()}};
+  bindRec();
   const $=id=>document.getElementById(id);
-  app.querySelectorAll('.tab[data-s]').forEach(b=>b.onclick=()=>{const s=allScenes(th).find(x=>x.id===b.dataset.s);if(s){stopListen();R={theme:th,scene:s,i:0,done:[],blind:R.blind,fb:null,busy:false,draft:'',meta:null};renderScene();autoSpeak()}});
+  app.querySelectorAll('.tab[data-s]').forEach(b=>b.onclick=()=>{const s=allScenes(th).find(x=>x.id===b.dataset.s);if(s){stopRec(true);R={theme:th,scene:s,i:0,done:[],blind:R.blind,fb:null,busy:false,draft:'',rated:null};renderScene();autoSpeak()}});
   $('genBtn').onclick=genScene;
   $('blindTg').onclick=()=>{keepDraft();R.blind=!R.blind;renderScene()};
   const ta=$('ans');if(ta)ta.oninput=()=>{R.draft=ta.value};
-  const mb=$('micBtn');if(mb)mb.onclick=()=>listen(ta,m=>{R.draft=m.text;R.meta=m;const mm=document.querySelector('#ans + .meta');if(mm)mm.remove();ta.insertAdjacentHTML('afterend',metaHTML(m))});
+  const cb=$('cmpBtn');if(cb)cb.onclick=()=>compare(turn.model,tKey());
+  const sm=$('showModel');if(sm)sm.onclick=()=>{keepDraft();R.showModel=true;renderScene()};
+  app.querySelectorAll('[data-rt]').forEach(b=>b.onclick=()=>{R.rated=+b.dataset.rt;keepDraft();renderScene()});
   const eb=$('evalBtn');if(eb)eb.onclick=()=>doEval();
-  const pk=$('peekBtn');if(pk)pk.onclick=()=>{stopListen();R.fb={peek:true,score:0};renderScene()};
-  const nx=$('nextBtn');if(nx)nx.onclick=()=>{R.done.push({ans:R.fb.ans||'（看了范例）',score:R.fb.score||0});R.i++;R.fb=null;R.draft='';R.meta=null;renderScene();autoSpeak()};
-  const rt=$('retryBtn');if(rt)rt.onclick=()=>{R.fb=null;R.draft='';R.meta=null;renderScene()};
-  const ag=$('againBtn');if(ag)ag.onclick=()=>{R.i=0;R.done=[];R.fb=null;renderScene();autoSpeak()};
-  const bl=$('blindBtn');if(bl)bl.onclick=()=>{R.i=0;R.done=[];R.fb=null;R.blind=true;renderScene();autoSpeak()};
-  const hb=$('homeBtn');if(hb)hb.onclick=()=>go('home');
+  const nx=$('nextBtn');if(nx)nx.onclick=()=>{stopRec();const sc0=R.rated||(R.fb&&R.fb.score)||0;
+    const lbl=R.rated?({90:'顺',70:'卡',40:'没说出'}[R.rated]):(R.fb?String(R.fb.score):'未评');
+    if(sc0&&!sc.id.startsWith('g')){const k=sc.id+'-'+R.i;S.turns[k]=Math.max(S.turns[k]||0,sc0);save()}
+    R.done.push({score:sc0,label:lbl});R.i++;R.fb=null;R.draft='';R.rated=null;R.showModel=false;renderScene();autoSpeak();window.scrollTo(0,document.body.scrollHeight)};
   app.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{const [en,cn]=JSON.parse(b.dataset.save);if(!S.saved.some(x=>x.en===en)){S.saved.unshift({en,cn,from:th.id});save()}b.textContent='已加入';b.disabled=true});
+  const ag=$('againBtn');if(ag)ag.onclick=()=>{R.i=0;R.done=[];R.fb=null;R.rated=null;R.showModel=false;renderScene();autoSpeak()};
+  const bl=$('blindBtn');if(bl)bl.onclick=()=>{R.i=0;R.done=[];R.fb=null;R.rated=null;R.showModel=false;R.blind=true;renderScene();autoSpeak()};
+  const hb=$('homeBtn');if(hb)hb.onclick=()=>go('home');
 }
 function keepDraft(){const ta=document.getElementById('ans');if(ta)R.draft=ta.value}
 function autoSpeak(){const tu=R.scene.turns[R.i];if(tu)setTimeout(()=>speak(tu.p,{alt:true}),250)}
 function fbHTML(fb,turn){
-  const listenModel=`<div class="row" style="margin-top:6px"><button class="say btn" data-say="${esc(fb.model||turn.model)}" type="button">${IC.play}听范例</button><button class="say btn" data-say="${esc(fb.model||turn.model)}" data-rate="0.75" type="button">${IC.slow}慢速</button></div>`;
-  if(fb.peek)return `<div class="card fb"><h4>参考回答</h4><div class="model">${esc(turn.model)}</div>${listenModel}<p class="note">先跟着范例读几遍，再点"再说一次"用自己的话说出来。</p><div class="row"><button class="btn solid" id="retryBtn" type="button">再说一次</button><button class="btn" id="nextBtn" type="button">跳过，下一句</button></div></div>`;
   const g=(fb.grammar||[]).map(x=>`<div class="fix"><span class="w">${esc(x.wrong)}</span><span class="r">${esc(x.right)}</span>${x.why?`<span class="why">${esc(x.why)}</span>`:''}</div>`).join('');
-  const pr=(fb.pron||[]).map(x=>`<div class="fix"><span><span class="w">${esc(x.heard)}</span> → <span class="r">${esc(x.meant)}</span></span><span class="why">${esc(x.tip)}</span><span class="row"><button class="say btn" data-say="${esc(x.meant)}" data-rate="0.6" type="button">${IC.slow}听正确读音</button></span></div>`).join('');
   const ph=(fb.phrases||[]).map(x=>`<div class="phr"><span>${esc(x.en)}<i>${esc(x.cn)}</i></span><button class="btn" data-save='${esc(JSON.stringify([x.en,x.cn]))}' type="button">加入生词本</button></div>`).join('');
-  return `<div class="card fb">
+  return `<div class="fb">
    <div class="score ${cls(fb.score)}"><b>${fb.score}</b><span>${esc(fb.verdict||'')}</span></div>
-   <div><h4>你说的</h4><p style="font-family:var(--f-say)">${esc(fb.ans)}</p>${metaHTML(fb.meta)}${audioHTML()}</div>
    ${g?`<div class="fb"><h4>语法纠正</h4>${g}</div>`:''}
    ${fb.structure?`<div><h4>句子结构与表达</h4><p style="font-size:14px">${esc(fb.structure)}</p></div>`:''}
-   ${pr?`<div class="fb"><h4>发音提示</h4>${pr}</div>`:''}
    ${fb.better?`<div><h4>在你原句基础上改好的版本</h4><div class="model">${esc(fb.better)}</div><div class="row" style="margin-top:6px"><button class="say btn" data-say="${esc(fb.better)}" type="button">${IC.play}听</button></div></div>`:''}
-   <div><h4>完整范例回答</h4><div class="model">${esc(fb.model||turn.model)}</div>${listenModel}</div>
-   ${ph?`<div><h4>值得记下的表达</h4>${ph}</div>`:''}
-   ${fb.local?`<p class="note">${esc(fb.local)}</p>`:''}
-   <div class="row"><button class="btn solid" id="nextBtn" type="button">${R.i+1<R.scene.turns.length?'下一句':'完成本场'}</button><button class="btn" id="retryBtn" type="button">再说一次</button></div></div>`}
-
+   ${fb.model?`<div><h4>更完整的范例</h4><div class="model">${esc(fb.model)}</div><div class="row" style="margin-top:6px"><button class="say btn" data-say="${esc(fb.model)}" type="button">${IC.play}听</button></div></div>`:''}
+   ${ph?`<div><h4>值得记下的表达</h4>${ph}</div>`:''}</div>`}
 async function doEval(){
-  stopListen();
-  const ta=document.getElementById('ans');const ans=(ta.value||'').trim();if(ans.length<3){toast('先说一句再提交');return}
-  R.draft=ans;R.busy=true;const out=document.getElementById('evalOut');document.getElementById('evalBtn').disabled=true;
-  const th=R.theme,sc=R.scene,turn=sc.turns[R.i];let fb=null,localMsg='';
-  if(P.key){
-    out.innerHTML='<div class="loading"><span class="spin"></span>AI 正在听你的回答…</div>';
-    const history=sc.turns.slice(0,R.i).map((tu,k)=>`${sc.partner.name}: ${tu.p}\n${P.name||'Learner'}: ${R.done[k]?R.done[k].ans:''}`).join('\n');
-    const m=R.meta;const metaLine=m&&m.text===ans?`Speech data: ${wpm(ans,m.secs)||'unknown'} words per minute${m.conf?`, recogniser confidence ${Math.round(m.conf*100)}%`:''}.`:'(The text may have been edited or typed.)';
-    const prompt=`You are a warm but exacting British English business-communication coach. Your student, ${P.name||'the learner'}, is a native Mandarin speaker working at ${P.company||'a company'}, ${bio()}. She is practising spoken business English, theme: "${th.en}".
+  const ta=document.getElementById('ans');const ans=(ta.value||'').trim();if(ans.length<3){toast('先把你说的话打进框里');return}
+  R.draft=ans;R.busy=true;R.fb=null;renderScene();
+  const th=R.theme,sc=R.scene,turn=sc.turns[R.i];
+  const history=sc.turns.slice(0,R.i).map(tu=>`${sc.partner.name}: ${tu.p}`).join('\n');
+  const prompt=`You are a warm but exacting British English business-communication coach. Your student, ${P.name||'the learner'}, is a native Mandarin speaker working at ${P.company||'a company'}, ${bio()}. Theme: "${th.en}".
 Scenario: ${sc.desc}
 She is talking to ${sc.partner.name} (${sc.partner.role}).
-${history?'Conversation so far:\n'+history+'\n':''}${sc.partner.name} has just said: "${turn.p}"
+${history?'Earlier lines from '+sc.partner.name+':\n'+history+'\n':''}${sc.partner.name} has just said: "${turn.p}"
 What she was asked to convey (Chinese brief): ${turn.hint}
 A reference answer: "${turn.model}"
-
-Her spoken answer, transcribed by a British English (en-GB) speech recogniser:
+Her answer (what she said, typed by her):
 """${ans}"""
-${metaLine}
-
-Evaluate it. Words that look wrong or out of place in context were probably mis-recognised because of her pronunciation; use them to infer specific pronunciation problems (e.g. "sheet" for "seat" = vowel length; dropped word endings; stress). Comment on pace if it is clearly too fast or slow.
-Judge: content (did she convey the brief), grammar, sentence structure and naturalness for a British workplace, register/politeness, and use of useful business phrases. Score 0-100 (85+ = would sound natural and professional to a British colleague).
-Write all explanations in concise Simplified Chinese; keep English examples in British spelling.
-JSON shape:
-{"score":78,"verdict":"一句中文总评","grammar":[{"wrong":"exact wrong fragment","right":"corrected fragment","why":"中文原因"}],"structure":"中文：句子结构/逻辑/语气上怎么改更地道","pron":[{"heard":"recognised word","meant":"intended word","tip":"中文发音要点，可含英式音标"}],"better":"her own answer minimally corrected so it sounds natural","model":"a complete, comprehensive model answer (2-4 sentences) that conveys the brief in natural British business English","phrases":[{"en":"useful phrase","cn":"中文"}]}
-At most 4 grammar items, 3 pron items, 3 phrases.`;
-    try{const r=await ai(prompt);if(r&&typeof r.score==='number')fb=r}catch(e){localMsg=e.message+'。这次先按和范例的重合度打分。'}
-  }else localMsg='没开 AI 点评，这次按和范例的关键词重合度打分。在设置里填 API Key 可获得完整的语法和发音点评。';
-  if(!fb){const a=align(norm(turn.model),norm(ans));fb={score:Math.max(20,Math.min(80,a.score+20)),verdict:'和范例的关键词重合度',model:turn.model}}
-  fb.local=localMsg;fb.score=Math.max(0,Math.min(100,Math.round(fb.score)));fb.ans=ans;fb.meta=R.meta;
-  const key=sc.id+'-'+R.i;if(!sc.id.startsWith('g'))S.turns[key]=Math.max(S.turns[key]||0,fb.score);
-  save();R.fb=fb;R.busy=false;renderScene();
+Judge content, grammar, sentence structure, naturalness for a British workplace, register/politeness, and useful business phrases. Score 0-100 (85+ = natural and professional to a British colleague). Explanations in concise Simplified Chinese; English in British spelling.
+JSON shape: {"score":78,"verdict":"一句中文总评","grammar":[{"wrong":"exact wrong fragment","right":"corrected fragment","why":"中文原因"}],"structure":"中文建议","better":"her answer minimally corrected","model":"a complete model answer, 2-4 sentences","phrases":[{"en":"useful phrase","cn":"中文"}]}
+At most 4 grammar items and 3 phrases.`;
+  try{const r=await ai(prompt);if(r&&typeof r.score==='number'){r.score=Math.max(0,Math.min(100,Math.round(r.score)));R.fb=r}else toast('AI 返回有误，再试一次')}
+  catch(e){toast(e.message)}
+  R.busy=false;renderScene();
 }
 async function genScene(){
-  const th=R.theme;if(!P.key){toast('生成新场景需要在设置里开启 AI 点评');return}
+  const th=R.theme;if(!P.key){toast('生成新场景需要在设置里填 API Key');return}
   const b=document.getElementById('genBtn');b.disabled=true;b.textContent='生成中…';
   const prompt=`Create a new spoken-English role-play scenario for ${P.name||'the learner'}, who works at ${P.company||'a company'}, ${bio()}, mainly on compliance, quality and supplier matters. Theme of the week: "${th.en}" (${th.cn}). Make it clearly different from these existing scenarios: ${allScenes(th).map(s=>s.title+' – '+s.desc).join(' | ')}.
-Exactly 4 turns. In each turn the other person speaks first (natural British business English), then the learner replies. Give a Chinese brief of what the learner should convey, and a model reply (1-3 sentences, British spelling, using phrases typical of this theme).
+Exactly 4 turns. In each turn the other person speaks first (natural British business English), then the learner replies. Give a Chinese brief of what the learner should convey, and a model reply (1-3 sentences, British spelling).
 JSON shape: {"title":"中文标题","desc":"one-sentence English scene description","cn":"中文场景描述","partner":{"name":"British first name","role":"role"},"turns":[{"p":"partner line","hint":"中文提示","model":"model reply"}]}`;
   try{const s=await ai(prompt,{max:2000});
     if(s&&Array.isArray(s.turns)&&s.turns.length){s.id='g'+Date.now().toString(36);s.partner=s.partner||{name:'Alex',role:'Colleague'};
       (S.gen[th.id]=S.gen[th.id]||[]).push(s);if(S.gen[th.id].length>5)S.gen[th.id].shift();save();
-      R={theme:th,scene:s,i:0,done:[],blind:R.blind,fb:null,busy:false,draft:'',meta:null};renderScene();autoSpeak();return}
-    toast('生成失败，再点一次试试')
-  }catch(e){toast(e.message)}
+      R={theme:th,scene:s,i:0,done:[],blind:R.blind,fb:null,busy:false,draft:'',rated:null};renderScene();autoSpeak();return}
+    toast('生成失败，再点一次试试')}catch(e){toast(e.message)}
   b.disabled=false;b.textContent='＋ AI 新场景';
 }
 
 /* ===================== MODE 2: SHADOW ===================== */
 let H=null;
 function renderShadow(arg){
-  if(arg&&arg.theme)H={theme:arg.theme,src:'p',stage:1,i:0,res:null,meta:null,draft:'',blur:false,armed:false,importing:false,vfb:null,videoURL:null,videoFile:null,frames:[]};
+  if(arg&&arg.theme)H={theme:arg.theme,src:'p',stage:1,i:0,blur:false,armed:false,importing:false,auto:true,vfb:null,videoURL:null,videoFile:null,frames:[],vsecs:0,swap:false};
   const th=H.theme;const custom=S.custom[th.id]||[];
   const lines=H.src==='p'?th.passage.lines:custom;const keyOf=i=>H.src==='p'?th.id+'-p'+i:'c-'+th.id+'-'+i;
+  const rk=i=>'s|'+keyOf(i);const wk='w|'+th.id+'|'+H.src;
   if(H.i>=lines.length)H.i=0;
   const mastered=lines.filter((_,i)=>(S.sents[keyOf(i)]||0)>=100).length;
+  const v=tedOf(th);
   let stageHTML='';
-  if(H.src==='c'&&(!lines.length||H.importing)){stageHTML=importHTML(custom.join('\n'))}
+  if(H.src==='c'&&(!lines.length||H.importing)&&H.stage<3){stageHTML=importHTML(custom.join('\n'))}
   else if(H.stage===1){
-    const line=lines[H.i];const best=S.sents[keyOf(H.i)]||0;
+    const line=lines[H.i];const best=S.sents[keyOf(H.i)]||0;const key=rk(H.i);
     stageHTML=`<div class="sdots">${lines.map((_,i)=>{const b=S.sents[keyOf(i)]||0;return `<button class="sd ${b>=100?'ok':b>0?'part':''} ${i===H.i?'cur':''}" data-i="${i}" type="button">${i+1}</button>`}).join('')}</div>
-     <div class="card"><div class="row" style="justify-content:space-between"><span class="note">第 ${H.i+1}/${lines.length} 句 · 最好 ${best}%</span><button class="btn" id="blurBtn" type="button">${H.blur?'显示原文':'遮住原文（听写式跟读）'}</button></div>
+     <div class="card"><div class="row" style="justify-content:space-between"><span class="note">第 ${H.i+1}/${lines.length} 句</span><button class="btn" id="blurBtn" type="button">${H.blur?'显示原文':'遮住原文'}</button></div>
       <p class="line ${H.blur?'blur':''}">${esc(line)}</p>
-      <div class="row"><button class="btn navy" id="playGo" type="button">${IC.ear}听一遍然后跟读</button><button class="btn ghost-navy say" data-say="${esc(line)}" data-rate="0.95" type="button">${IC.play}原速</button><button class="btn ghost-navy say" data-say="${esc(line)}" data-rate="0.7" type="button">${IC.slow}慢速</button></div>
-      ${micRow('点红色按钮跟读这一句')}
-      <textarea id="sh" placeholder="识别结果会出现在这里…">${esc(H.draft)}</textarea>
-      ${H.res?`<div class="score ${cls(H.res.score)}"><b>${H.res.score}%</b><span>${H.res.score>=100?'完美复刻！这句已掌握。':'红色的词没被识别出来，多半是发音、重音或连读问题。点红色的词听慢速读音，再说一次。'}</span></div>${metaHTML(H.meta)}${diffHTML(H.res)}${audioHTML()}
-        ${H.res.score<100&&H.res.miss.length&&P.key?`<div class="row"><button class="btn" id="whyBtn" type="button">${IC.spark}AI 讲解这些词怎么读</button></div><div id="whyOut"></div>`:''}`:''}
-      <div class="row"><button class="btn" id="prevBtn" type="button" ${H.i===0?'disabled':''}>上一句</button><button class="btn" id="nextS" type="button">下一句</button><button class="btn" id="chkBtn" type="button">按框里的文字检查</button></div>
+      <div class="row"><button class="btn navy say" data-say="${esc(line)}" data-rate="0.95" type="button">${IC.play}听原声</button><button class="btn ghost-navy say" data-say="${esc(line)}" data-rate="0.7" type="button">${IC.slow}慢速</button></div>
+      ${recBlock(key,'点红色按钮跟读这一句')}
+      <div class="row"><button class="btn navy" id="cmpBtn" data-needrec="${esc(key)}" type="button" disabled>${IC.ear}对比：原声 → 我的</button><button class="btn ghost-navy" id="cmpSlow" data-needrec="${esc(key)}" type="button" disabled>${IC.slow}慢速对比</button></div>
+      <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoCmp" ${H.auto?'checked':''}>录完自动播放对比</label>
+      <div><span class="note">对比听完，你和原声像不像？</span>${rateRow(best>=100?100:best>=80?80:best>0?50:null,[[100,'一模一样'],[80,'差一点'],[50,'差很多']],'data-sr')}</div>
+      <div class="row"><button class="btn" id="prevBtn" type="button" ${H.i===0?'disabled':''}>上一句</button><button class="btn solid" id="nextS" type="button">下一句</button></div>
      </div>`;
+    REC_CB[key]={done:()=>{if(H.auto)setTimeout(()=>compare(line,key),300)}};
   }else if(H.stage===2){
-    stageHTML=`<div class="card"><p class="note">先连续听 2 遍，再遮住原文完整复述。目标：一口气说完，停顿和重音跟原声一致。</p>
+    const best=S.sents['whole|'+wk]||0;
+    stageHTML=`<div class="card"><p class="note">先连续听两遍，再遮住原文把整段讲一遍，录下来和原声对比。</p>
       <div class="passage ${H.blur?'line blur':''}" style="${H.blur?'font-size:17px':''}">${lines.map((l,i)=>`<span class="${(S.sents[keyOf(i)]||0)>=100?'ok':''}">${esc(l)}</span>`).join(' ')}</div>
       <div class="row"><button class="btn navy" id="playAll" type="button">${IC.play}连续播放</button><button class="btn ghost-navy" id="playAllSlow" type="button">${IC.slow}慢速连播</button><button class="btn" id="blurBtn" type="button">${H.blur?'显示原文':'遮住原文'}</button></div>
-      ${micRow('点红色按钮，整段复述')}
-      <textarea id="sh" placeholder="识别结果会出现在这里…" style="min-height:140px">${esc(H.draft)}</textarea>
-      <div class="row"><button class="btn" id="chkBtn" type="button">按框里的文字检查</button></div>
-      ${H.res?`<div class="score ${cls(H.res.score)}"><b>${H.res.score}%</b><span>${H.res.score>=100?'整段完美复刻。可以进入视频模仿。':'看红色的词，回到逐句跟读把它们练到 100%。'}</span></div>${metaHTML(H.meta)}${diffHTML(H.res)}${audioHTML()}`:''}
+      ${recBlock(wk,'点红色按钮，整段讲一遍')}
+      <div class="row"><button class="btn navy" id="cmpAll" data-needrec="${esc(wk)}" type="button" disabled>${IC.ear}对比：原声整段 → 我的</button></div>
+      <div><span class="note">整段听下来，像不像？</span>${rateRow(best||null,[[100,'很像了'],[80,'还差一点'],[50,'差很多']],'data-wr')}</div>
     </div>`;
   }else{
-    stageHTML=`<div class="card"><p class="note">打开前置摄像头，像在台上一样把整段讲一遍，下面是提词。录完可以回放、保存到手机${P.key?'，并让 AI 看画面点评眼神、表情、体态和手势':''}。</p>
-      <div class="cam" id="camBox">${H.videoURL?`<video controls playsinline src="${H.videoURL}"></video>`:`<video class="live" id="live" playsinline muted autoplay hidden></video>`}<span class="rec" id="recTag" hidden>● 录制中</span></div>
-      <div class="prompter">${lines.map(esc).join('<br>')}</div>
-      <div class="row" id="camCtl">${H.videoURL?`<button class="btn" id="reRec" type="button">重录</button><button class="btn" id="saveVid" type="button">保存视频</button>${P.key?`<button class="btn solid" id="vEval" type="button">${IC.spark}AI 点评表情与体态</button>`:''}`
-        :`<button class="btn navy" id="camOn" type="button">打开摄像头</button><button class="btn solid" id="recBtn" type="button" hidden>开始录制</button><label class="btn" for="vidUp">或上传视频</label><input type="file" id="vidUp" accept="video/*" hidden>`}</div>
+    stageHTML=`<div class="card">
+      <div class="theme-head"><span class="eyebrow">本周示范视频 · ${esc(v.len||'')}</span><b style="font-size:16px">${esc(v.title)}</b><span class="note">${esc(v.who)} · ${esc(v.why)}</span></div>
+      <div class="vframe"><iframe src="${tedEmbed(v)}" title="${esc(v.title)}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+      <div class="row"><a class="btn ghost-navy" href="${tedURL(v)}" target="_blank" rel="noopener">${IC.link}在 TED 打开（有字幕和文字稿）</a><button class="btn" id="swapBtn" type="button">换一个视频</button></div>
+      ${H.swap?`<div class="field"><label for="swapUrl">粘贴任意 TED 演讲网址（建议 10 分钟以内）</label><input type="text" id="swapUrl" placeholder="https://www.ted.com/talks/..."><div class="row"><button class="btn solid" id="swapSave" type="button">换成这个</button>${S.vid&&S.vid[th.id]?'<button class="btn" id="swapReset" type="button">恢复默认</button>':''}</div></div>`:''}
+      <p class="note">看视频时注意：他开口前停顿多久、哪个词加重、手放在哪里、表情怎么跟着内容变。选一段（1–3 分钟最好）模仿，最长可录 10 分钟。</p>
+    </div>
+    <div class="card"><b>录下你的模仿</b>
+      <div class="cam" id="camBox">${H.videoURL?`<video controls playsinline src="${H.videoURL}"></video>`:`<video class="live" id="live" playsinline muted autoplay hidden></video>`}<span class="rec" id="recTag" hidden>● 0:00 / 10:00</span></div>
+      <details class="note"><summary>提词（本周课文）</summary><div class="prompter">${lines.map(esc).join('<br>')}</div></details>
+      <div class="row" id="camCtl">${H.videoURL?`<button class="btn" id="reRec" type="button">重录</button><button class="btn" id="saveVid" type="button">保存到手机</button><button class="btn solid" id="vEval" type="button" ${P.key?'':'disabled'}>${IC.spark}AI 打分</button>`
+        :`<button class="btn navy" id="camOn" type="button">打开前置摄像头</button><button class="btn solid" id="recBtn" type="button" hidden>开始录制</button><label class="btn" for="vidUp">或上传视频</label><input type="file" id="vidUp" accept="video/*" hidden>`}</div>
+      ${H.videoURL&&!P.key?'<p class="note">AI 打分需要在设置里填 API Key。</p>':''}
       <div id="vOut">${H.vfb?vfbHTML(H.vfb):''}</div>
-      <div class="fb"><h4>自查清单（对照 TED 原视频）</h4><div class="checklist">${['眼睛看镜头，不是看稿','开口前先停顿半秒','每句有一个重音词','句末语调下降，不像在提问','表情和内容一致：讲问题时认真，讲好处时微笑','手势在胸前区域，自然打开','语速接近原声，没有赶'].map((x,i)=>`<label><input type="checkbox" id="ck${i}">${x}</label>`).join('')}</div></div>
+      <div class="fb"><h4>自查清单（对照示范视频）</h4><div class="checklist">${['眼睛看镜头，不是看稿','开口前先停顿半秒','每句有一个重音词','句末语调下降，不像在提问','表情和内容一致：讲问题时认真，讲好处时微笑','手势在胸前区域，自然打开','语速接近原视频，没有赶'].map((x,i)=>`<label><input type="checkbox" id="ck${i}">${x}</label>`).join('')}</div></div>
     </div>`;
   }
-  const tedCard=`<div class="card ted"><span class="badge">TED</span><b>${esc(th.ted.title)}</b><span>${esc(th.ted.who)} · ${esc(th.ted.why)}</span><span class="row"><a class="btn ghost-navy" href="${th.ted.url}" target="_blank" rel="noopener">${IC.link}打开原视频</a><button class="btn" id="impBtn" type="button">导入 TED 文字稿片段</button></span></div>`;
   app.innerHTML=`${topBar('模式二 · '+th.cn)}
-   ${tedCard}
-   <div class="tabs"><button class="tab ${H.src==='p'?'on':''}" data-src="p" type="button">本周课文 · ${esc(th.passage.title)}</button><button class="tab ${H.src==='c'?'on':''}" data-src="c" type="button">我的 TED 片段 (${custom.length})</button></div>
-   ${lines.length&&!(H.src==='c'&&H.importing)?`<div class="tabs"><button class="tab ${H.stage===1?'on':''}" data-st="1" type="button">① 逐句跟读</button><button class="tab ${H.stage===2?'on':''}" data-st="2" type="button">② 整段复述</button><button class="tab ${H.stage===3?'on':''}" data-st="3" type="button">③ 视频模仿</button></div>
-   <div class="prog"><span>已 100% 复刻</span><div class="bar thin navy"><i style="width:${mastered/lines.length*100}%"></i></div><em>${mastered}/${lines.length}</em></div>`:''}
+   <div class="tabs"><button class="tab ${H.stage===1?'on':''}" data-st="1" type="button">① 逐句跟读</button><button class="tab ${H.stage===2?'on':''}" data-st="2" type="button">② 整段复述</button><button class="tab ${H.stage===3?'on':''}" data-st="3" type="button">③ 视频模仿</button></div>
+   ${H.stage<3?`<div class="tabs"><button class="tab ${H.src==='p'?'on':''}" data-src="p" type="button">本周课文 · ${esc(th.passage.title)}</button><button class="tab ${H.src==='c'?'on':''}" data-src="c" type="button">我的 TED 片段 (${custom.length})</button></div>
+   ${lines.length&&!(H.src==='c'&&H.importing)?`<div class="prog"><span>已能复刻</span><div class="bar thin navy"><i style="width:${mastered/lines.length*100}%"></i></div><em>${mastered}/${lines.length}</em></div>`:''}`:''}
    ${stageHTML}
-   ${H.src==='c'&&lines.length&&!H.importing?`<div class="row"><button class="btn" id="editImp" type="button">替换片段</button><button class="btn ${H.armed?'solid-warn':'warn'}" id="delImp" type="button">${H.armed?'确认删除':'删除片段'}</button></div>`:''}`;
-  bindBack();bindSays();
+   ${H.stage<3?`<p class="note">"原声"是手机里的英式标准朗读。TED 视频没法按句子切开播放，想跟视频原声练，可以在 TED 页面复制一段文字稿，用"我的 TED 片段"导入，再到第③步看着视频整段模仿。</p>`:''}
+   ${H.src==='c'&&lines.length&&!H.importing&&H.stage<3?`<div class="row"><button class="btn" id="impBtn" type="button">替换片段</button><button class="btn ${H.armed?'solid-warn':'warn'}" id="delImp" type="button">${H.armed?'确认删除':'删除片段'}</button></div>`:''}`;
+  bindBack();bindSays();bindRec();
   const $=id=>document.getElementById(id);
-  const reset=()=>{H.res=null;H.meta=null;H.draft='';if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}};
-  app.querySelectorAll('.tab[data-src]').forEach(b=>b.onclick=()=>{closeCam();H.src=b.dataset.src;H.i=0;H.stage=1;H.importing=false;reset();renderShadow()});
-  app.querySelectorAll('.tab[data-st]').forEach(b=>b.onclick=()=>{closeCam();H.stage=+b.dataset.st;reset();renderShadow()});
-  app.querySelectorAll('.sd').forEach(b=>b.onclick=()=>{H.i=+b.dataset.i;reset();renderShadow();speak(lines[H.i])});
-  $('impBtn').onclick=()=>{closeCam();H.src='c';H.importing=true;renderShadow()};
-  const ta=$('sh');if(ta)ta.oninput=()=>H.draft=ta.value;
+  app.querySelectorAll('.tab[data-src]').forEach(b=>b.onclick=()=>{stopRec(true);H.src=b.dataset.src;H.i=0;H.importing=false;renderShadow()});
+  app.querySelectorAll('.tab[data-st]').forEach(b=>b.onclick=()=>{stopRec(true);closeCam();H.stage=+b.dataset.st;renderShadow()});
+  app.querySelectorAll('.sd').forEach(b=>b.onclick=()=>{stopRec(true);H.i=+b.dataset.i;renderShadow();speak(lines[H.i])});
   const bb=$('blurBtn');if(bb)bb.onclick=()=>{H.blur=!H.blur;renderShadow()};
-  const target=()=>H.stage===1?lines[H.i]:lines.join(' ');
-  const score=m=>{H.draft=m?m.text:ta.value.trim();H.meta=m||null;if(!H.draft){toast('先跟读一遍');return}
-    H.res=align(norm(target()),norm(H.draft));
-    if(H.stage===1){const k=keyOf(H.i);if(H.res.score>(S.sents[k]||0)){S.sents[k]=H.res.score;save()}}
-    else if(H.res.score>=100){lines.forEach((_,i)=>S.sents[keyOf(i)]=100);save()}
-    if(H.res.score>=100)toast('100%！');renderShadow()};
-  const mb=$('micBtn');if(mb)mb.onclick=()=>{if(!L){H.res=null;ta.value=''}listen(ta,m=>score(m))};
-  const pg=$('playGo');if(pg)pg.onclick=()=>{H.res=null;ta.value='';speak(lines[H.i],{onend:()=>{if(P.autoAfterPlay&&view==='shadow'&&H.stage===1)listen(document.getElementById('sh'),m=>score(m))}})};
-  const ck=$('chkBtn');if(ck)ck.onclick=()=>score(null);
-  const pv=$('prevBtn');if(pv)pv.onclick=()=>{stopListen();H.i=Math.max(0,H.i-1);reset();renderShadow();speak(lines[H.i])};
-  const nx=$('nextS');if(nx)nx.onclick=()=>{stopListen();H.i=(H.i+1)%lines.length;reset();renderShadow();speak(lines[H.i])};
+  const ac=$('autoCmp');if(ac)ac.onchange=()=>{H.auto=ac.checked};
+  const cb=$('cmpBtn');if(cb)cb.onclick=()=>compare(lines[H.i],rk(H.i));
+  const cs=$('cmpSlow');if(cs)cs.onclick=()=>compare(lines[H.i],rk(H.i),0.72);
+  app.querySelectorAll('[data-sr]').forEach(b=>b.onclick=()=>{S.sents[keyOf(H.i)]=+b.dataset.sr;save();if(+b.dataset.sr>=100)toast('这句掌握了');renderShadow()});
+  app.querySelectorAll('[data-wr]').forEach(b=>b.onclick=()=>{S.sents['whole|'+wk]=+b.dataset.wr;if(+b.dataset.wr>=100)lines.forEach((_,i)=>S.sents[keyOf(i)]=100);save();renderShadow()});
+  const pv=$('prevBtn');if(pv)pv.onclick=()=>{stopRec(true);H.i=Math.max(0,H.i-1);renderShadow();speak(lines[H.i])};
+  const nx=$('nextS');if(nx)nx.onclick=()=>{stopRec(true);H.i=(H.i+1)%lines.length;renderShadow();speak(lines[H.i])};
   const pa=$('playAll');if(pa)pa.onclick=()=>playSeq(lines,0.95);
   const ps=$('playAllSlow');if(ps)ps.onclick=()=>playSeq(lines,0.72);
-  const wb=$('whyBtn');if(wb)wb.onclick=()=>explainMiss(lines[H.i],H.res.miss,H.draft);
+  const ca=$('cmpAll');if(ca)ca.onclick=()=>{if(!REC[wk])return;stopAllAudio();playSeq(lines,0.95,()=>setTimeout(()=>playMine(wk),400))};
+  if(H.stage===2)REC_CB[wk]={max:600};
+  const sw=$('swapBtn');if(sw)sw.onclick=()=>{H.swap=!H.swap;renderShadow()};
+  const ss=$('swapSave');if(ss)ss.onclick=()=>{const sl=slugFrom($('swapUrl').value);if(!sl){toast('这不是 TED 演讲网址');return}S.vid=S.vid||{};S.vid[th.id]=sl;save();H.swap=false;renderShadow()};
+  const sr=$('swapReset');if(sr)sr.onclick=()=>{delete S.vid[th.id];save();H.swap=false;renderShadow()};
   bindCam(lines);bindImport();
-  const ed=$('editImp');if(ed)ed.onclick=()=>{H.importing=true;H.armed=false;renderShadow()};
+  const ib=$('impBtn');if(ib)ib.onclick=()=>{H.importing=true;H.armed=false;renderShadow()};
   const dl=$('delImp');if(dl)dl.onclick=()=>{if(!H.armed){H.armed=true;renderShadow();setTimeout(()=>{if(H&&H.armed){H.armed=false;if(view==='shadow')renderShadow()}},4000)}else{H.armed=false;custom.forEach((_,i)=>delete S.sents['c-'+th.id+'-'+i]);delete S.custom[th.id];save();H.src='p';renderShadow()}};
 }
-async function explainMiss(line,miss,heard){const out=document.getElementById('whyOut');out.innerHTML='<div class="loading"><span class="spin"></span>正在分析…</div>';
-  try{const r=await ai(`A Mandarin-speaking learner shadowed this British English sentence: "${line}"\nAn en-GB speech recogniser heard: "${heard}"\nThese target words were not recognised: ${miss.join(', ')}.\nFor each missed word (max 5), explain in concise Simplified Chinese the most likely pronunciation problem for a Chinese speaker and how to fix it, with British IPA. Also note any linking/connected speech in the sentence she should copy.\nJSON shape: {"words":[{"word":"...","ipa":"/.../","tip":"中文"}],"linking":"中文：连读/弱读要点"}`,{max:900});
-    out.innerHTML=`<div class="fb">${(r.words||[]).map(w=>`<div class="fix"><span class="r">${esc(w.word)} <span style="font-weight:400">${esc(w.ipa)}</span></span><span class="why">${esc(w.tip)}</span><span class="row"><button class="say btn" data-say="${esc(w.word)}" data-rate="0.6" type="button">${IC.slow}慢速</button></span></div>`).join('')}${r.linking?`<p class="note">${esc(r.linking)}</p>`:''}</div>`;bindSays()}
-  catch(e){out.innerHTML=`<p class="note">${esc(e.message)}</p>`}}
-function importHTML(val){return `<div class="card"><b>导入 TED 文字稿片段</b><p class="note">在 TED 页面打开 Read transcript，复制你想练的一段（建议 5–10 句，讲者语速平稳的部分），粘贴到下面。会自动拆成单句，只保存在这台设备上。</p><textarea id="impTa" style="min-height:140px" placeholder="粘贴英文文字稿…">${esc(val||'')}</textarea><div class="row"><button class="btn solid" id="impSave" type="button">拆句并保存</button>${(S.custom[H.theme.id]||[]).length?'<button class="btn" id="impCancel" type="button">取消</button>':''}</div></div>`}
+function importHTML(val){return `<div class="card"><b>导入 TED 文字稿片段</b><p class="note">在 TED 页面打开 Read transcript，复制你想练的一段（建议 5–10 句），粘贴到下面，会自动拆成单句。</p><textarea id="impTa" style="min-height:140px" placeholder="粘贴英文文字稿…">${esc(val||'')}</textarea><div class="row"><button class="btn solid" id="impSave" type="button">拆句并保存</button>${(S.custom[H.theme.id]||[]).length?'<button class="btn" id="impCancel" type="button">取消</button>':''}</div></div>`}
 function bindImport(){const b=document.getElementById('impSave');if(!b)return;
   const c=document.getElementById('impCancel');if(c)c.onclick=()=>{H.importing=false;renderShadow()};
   b.onclick=()=>{const raw=document.getElementById('impTa').value.replace(/\((?:Laughter|Applause)\)/gi,' ').replace(/\s+/g,' ').trim();
   const parts=(raw.match(/[^.!?]+[.!?]+["”’]?|[^.!?]+$/g)||[]).map(s=>s.trim()).filter(s=>s.split(' ').length>=2).slice(0,30);
   if(!parts.length){toast('没识别到句子，检查一下粘贴的内容');return}
-  const th=H.theme;(S.custom[th.id]||[]).forEach((_,i)=>delete S.sents['c-'+th.id+'-'+i]);S.custom[th.id]=parts;save();H.src='c';H.i=0;H.stage=1;H.res=null;H.importing=false;toast('已拆成 '+parts.length+' 句');renderShadow()}}
-function playSeq(lines,rate){let i=0;const nxt=()=>{if(i>=lines.length||view!=='shadow')return;const l=lines[i++];speak(l,{rate,onend:()=>setTimeout(nxt,350)})};nxt()}
+  const th=H.theme;(S.custom[th.id]||[]).forEach((_,i)=>delete S.sents['c-'+th.id+'-'+i]);S.custom[th.id]=parts;save();H.src='c';H.i=0;H.stage=1;H.importing=false;toast('已拆成 '+parts.length+' 句');renderShadow()}}
+function playSeq(lines,rate,after){let i=0;const nxt=()=>{if(view!=='shadow')return;if(i>=lines.length){after&&after();return}const l=lines[i++];speak(l,{rate,onend:()=>setTimeout(nxt,350)})};nxt()}
 
-/* ----- camera ----- */
-let CAM=null; // {stream, rec, chunks, frames, timer}
-function closeCam(){if(!CAM)return;try{clearInterval(CAM.timer);if(CAM.rec&&CAM.rec.state!=='inactive')CAM.rec.stop()}catch(e){}CAM.stream.getTracks().forEach(t=>t.stop());CAM=null}
+/* ----- camera (video imitation, max 10 minutes) ----- */
+let CAM=null;
+const VMAX=600;
+function closeCam(){if(!CAM)return;try{clearInterval(CAM.timer);clearInterval(CAM.tick);if(CAM.rec&&CAM.rec.state!=='inactive'){CAM.discard=true;CAM.rec.stop()}}catch(e){}CAM.stream.getTracks().forEach(t=>t.stop());CAM=null}
 function grabLive(v){const w=v.videoWidth,h=v.videoHeight;if(!w)return null;const sc=Math.min(1,900/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*sc);c.height=Math.round(h*sc);c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c}
 function bindCam(lines){const $=id=>document.getElementById(id);
   const on=$('camOn'),rb=$('recBtn'),live=$('live');
-  if(on)on.onclick=async()=>{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('这个浏览器打不开摄像头，可以用"上传视频"');return}
-    try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280}},audio:true});closeCam();CAM={stream:st,frames:[]};live.srcObject=st;live.hidden=false;on.hidden=true;rb.hidden=false}
-    catch(e){toast('没有摄像头权限：在浏览器地址栏的权限里允许摄像头和麦克风')}};
+  if(on)on.onclick=async()=>{if(!canRec){toast('这个浏览器打不开摄像头，可以用"上传视频"');return}
+    stopRec(true);try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280}},audio:{echoCancellation:true}});closeCam();CAM={stream:st,frames:[]};live.srcObject=st;live.hidden=false;on.hidden=true;rb.hidden=false}
+    catch(e){toast('没有摄像头权限：点地址栏左边的图标 → 权限 → 摄像头和麦克风选"允许"')}};
   if(rb)rb.onclick=()=>{if(!CAM)return;
-    if(CAM.rec&&CAM.rec.state==='recording'){clearInterval(CAM.timer);CAM.rec.stop();return}
-    let mr;try{mr=new MediaRecorder(CAM.stream)}catch(e){toast('这个浏览器不支持录像，可以用"上传视频"');return}
-    const ch=[];CAM.rec=mr;CAM.frames=[];mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
-    mr.onstop=()=>{const blob=new Blob(ch,{type:mr.mimeType||'video/webm'});const frames=CAM.frames;closeCam();H.videoFile=blob;H.frames=frames;H.videoURL=URL.createObjectURL(blob);H.vfb=null;renderShadow()};
-    mr.start(1000);rb.textContent='停止录制';$('recTag').hidden=false;
-    CAM.timer=setInterval(()=>{const c=grabLive(live);if(c)c.toBlob(b=>{if(b&&CAM){CAM.frames.push(b);if(CAM.frames.length>24)CAM.frames.splice(1,1)}},'image/jpeg',0.82)},2500)};
-  const up=$('vidUp');if(up)up.onchange=()=>{const f=up.files[0];if(f){H.videoFile=f;H.frames=[];H.videoURL=URL.createObjectURL(f);H.vfb=null;renderShadow()}};
+    if(CAM.rec&&CAM.rec.state==='recording'){CAM.rec.stop();return}
+    const mime=pickMime('video');let mr;try{mr=mime?new MediaRecorder(CAM.stream,{mimeType:mime}):new MediaRecorder(CAM.stream)}catch(e){try{mr=new MediaRecorder(CAM.stream)}catch(e2){toast('这个浏览器不支持录像，可以用"上传视频"');return}}
+    const ch=[];const c=CAM;c.rec=mr;c.frames=[];c.t0=Date.now();mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
+    mr.onstop=()=>{clearInterval(c.timer);clearInterval(c.tick);if(c.discard)return;const blob=new Blob(ch,{type:mr.mimeType||mime||'video/webm'});const frames=c.frames;const secs=(Date.now()-c.t0)/1000;closeCam();
+      H.videoFile=blob;H.frames=frames;H.vsecs=secs;H.videoURL=URL.createObjectURL(blob);H.vfb=null;renderShadow()};
+    mr.start(1000);rb.textContent='停止录制';const tag=$('recTag');tag.hidden=false;
+    c.tick=setInterval(()=>{const t=(Date.now()-c.t0)/1000;tag.textContent=`● ${fmtS(t)} / 10:00`;if(t>=VMAX){toast('已到 10 分钟，自动停止');mr.stop()}},500);
+    c.timer=setInterval(()=>{const cv=grabLive(live);if(cv)cv.toBlob(b=>{if(b&&CAM){CAM.frames.push(b);if(CAM.frames.length>40)CAM.frames.splice(1,1)}},'image/jpeg',0.8)},3000)};
+  const up=$('vidUp');if(up)up.onchange=()=>{const f=up.files[0];if(f){H.videoFile=f;H.frames=[];H.vsecs=0;H.videoURL=URL.createObjectURL(f);H.vfb=null;renderShadow()}};
   const rr=$('reRec');if(rr)rr.onclick=()=>{if(H.videoURL)URL.revokeObjectURL(H.videoURL);H.videoURL=null;H.videoFile=null;H.frames=[];H.vfb=null;renderShadow()};
   const sv=$('saveVid');if(sv)sv.onclick=()=>{const ext=/mp4/.test(H.videoFile.type)?'mp4':'webm';const a=document.createElement('a');a.href=H.videoURL;a.download='speakup-'+ds(todayD())+'.'+ext;document.body.appendChild(a);a.click();a.remove()};
   const ve=$('vEval');if(ve)ve.onclick=()=>videoEval(lines);
 }
 async function framesFromFile(file,n){const url=URL.createObjectURL(file);const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;
-  await new Promise(r=>{v.onloadeddata=r;v.onerror=r;setTimeout(r,6000)});let d=v.duration;if(!isFinite(d)||!d)d=8;const out=[];
-  for(let k=0;k<n;k++){await new Promise(r=>{v.onseeked=r;v.currentTime=Math.min(d-0.1,d*(k+0.5)/n);setTimeout(r,2500)});const c=grabLive(v);if(c){const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.82));if(b)out.push(b)}}
+  await new Promise(r=>{v.onloadeddata=r;v.onerror=r;setTimeout(r,6000)});let d=v.duration;if(!isFinite(d)||!d)d=8;if(!H.vsecs)H.vsecs=d;const out=[];
+  for(let k=0;k<n;k++){await new Promise(r=>{v.onseeked=r;v.currentTime=Math.min(d-0.1,d*(k+0.5)/n);setTimeout(r,2500)});const c=grabLive(v);if(c){const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.8));if(b)out.push(b)}}
   URL.revokeObjectURL(url);return out}
 function pickN(arr,n){if(arr.length<=n)return arr;const out=[];for(let k=0;k<n;k++)out.push(arr[Math.floor((k+0.5)*arr.length/n)]);return out}
-function vfbHTML(v){return `<div class="fb card" style="background:var(--bg)"><h4>AI 点评</h4><p style="font-size:14px">${esc(v.overall)}</p>${(v.items||[]).map(x=>`<div class="fix"><span class="r" style="font-family:var(--f-body)">${esc(x.area)} · ${esc(x.rating)}</span><span class="why">${esc(x.note)}</span></div>`).join('')}${(v.tips||[]).length?`<h4>下次录之前</h4><ul style="margin:0;padding-left:18px;font-size:14px">${v.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`}
-async function videoEval(lines){const out=document.getElementById('vOut');out.innerHTML='<div class="loading"><span class="spin"></span>正在截取画面并点评…</div>';
-  try{let frames=pickN(H.frames||[],5);if(frames.length<2)frames=await framesFromFile(H.videoFile,5);if(!frames.length)throw new Error('没能读取视频画面，换成 MP4 再试，或用下面的自查清单。');
-    const v=await ai(`These ${frames.length} images are frames, in time order, from a video of ${P.name||'a learner'} (a Mandarin-speaking professional in the UK) rehearsing this short business talk to camera:\n"${lines.join(' ')}"\nCoach her delivery like a British presentation coach: eye contact with the lens, facial expression and whether it fits the words, posture, gestures; framing or lighting only if it hurts the delivery. Be specific to what you see; kind but honest. Concise Simplified Chinese.\nJSON shape: {"overall":"一两句总评","items":[{"area":"眼神|表情|体态|手势|画面","rating":"好/一般/需改进","note":"具体观察和建议"}],"tips":["下次录之前做的 1-3 件事"]}`,{images:frames,max:1200});
-    H.vfb=v;out.innerHTML=vfbHTML(v)}
+function vfbHTML(v){const items=v.items||[];
+  return `<div class="fb card" style="background:var(--bg)"><div class="score ${cls(v.total||0)}"><b>${v.total!=null?v.total:'-'}</b><span>${esc(v.overall||'')}</span></div>
+   ${items.map(x=>`<div class="aspect"><div class="row" style="justify-content:space-between"><b>${esc(x.area)}</b><span class="chip ${cls((x.score||0)*10)}">${x.score!=null?x.score:'-'}/10</span></div><div class="bar thin"><i style="width:${(x.score||0)*10}%"></i></div><span class="why">${esc(x.note||'')}</span></div>`).join('')}
+   ${(v.tips||[]).length?`<h4>下次录之前</h4><ul style="margin:0;padding-left:18px;font-size:14px">${v.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
+   <p class="note">AI 只能看画面，听不到声音。发音和语调请用第①②步的录音对比来练。</p></div>`}
+async function videoEval(lines){const out=document.getElementById('vOut');out.innerHTML='<div class="loading"><span class="spin"></span>正在截取画面并打分…</div>';
+  try{let frames=pickN(H.frames||[],6);if(frames.length<3)frames=await framesFromFile(H.videoFile,6);if(!frames.length)throw new Error('没能读取视频画面，换成 MP4 再试，或用下面的自查清单。');
+    const v=tedOf(H.theme);const secs=Math.round(H.vsecs||0);
+    const r=await ai(`These ${frames.length} images are frames, in time order, from a ${secs?secs+'-second ':''}video of ${P.name||'a learner'}, a Mandarin-speaking professional in the UK, practising business presentation delivery to camera. She is imitating the TED talk "${v.title}" by ${v.who}, and may be using this script: "${lines.join(' ')}".
+You cannot hear the audio; judge only what is visible. Score like a British presentation coach, each aspect 1-10, being specific to what you see, kind but honest:
+1 眼神交流 (eye contact with the lens), 2 表情 (expression and whether it fits a confident talk), 3 体态 (posture, stillness vs fidgeting), 4 手势 (purposeful, open gestures), 5 自信与感染力 (energy, presence), 6 画面呈现 (framing, lighting, background).
+total = overall score out of 100 (not a simple sum; weight eye contact, expression and confidence most). Concise Simplified Chinese.
+JSON shape: {"total":72,"overall":"一两句总评","items":[{"area":"眼神交流","score":7,"note":"具体观察和建议"}],"tips":["下次录之前做的 1-3 件事"]}`,{images:frames,max:1400});
+    H.vfb=r;out.innerHTML=vfbHTML(r)}
   catch(e){out.innerHTML=`<p class="note">${esc(e.message)}</p>`}}
 
 /* ===================== VOCAB ===================== */
 function renderVocab(){
   const th=curTheme||T[weekIndex().w];
   app.innerHTML=`${topBar('词汇 · '+th.cn)}
-   <div class="card"><h3 style="font-size:17px">本周 8 个表达</h3><p class="note">听 → 点麦克风跟读例句 → 能自己造句了就勾"已掌握"。</p>
-   ${th.vocab.map((v,i)=>{const k=th.id+'-'+i,on=!!S.vocab[k];return `<div class="vc ${on?'known':''}"><div class="h"><b>${esc(v[0])}</b><button class="say" data-say="${esc(v[0])}" type="button" aria-label="播放">${IC.play}</button></div><span class="cn">${esc(v[1])}</span><span class="ex">${esc(v[2])} <button class="say" data-say="${esc(v[2])}" type="button" aria-label="播放例句">${IC.play}</button></span>
-     <span class="row">${(SR||window.MediaRecorder)?`<button class="btn vmic" data-i="${i}" type="button">${IC.mic}跟读例句</button>`:''}<button class="btn ${on?'solid':''}" data-k="${k}" type="button">${on?'✓ 已掌握':'标记为已掌握'}</button><span class="vres" id="vr${i}"></span></span></div>`}).join('')}
+   <div class="card"><h3 style="font-size:17px">本周 8 个表达</h3><p class="note">听 → 录下自己读例句 → 对比 → 能自己造句了就标"已掌握"。</p>
+   ${th.vocab.map((v,i)=>{const k=th.id+'-'+i,on=!!S.vocab[k];const rk='v|'+k;return `<div class="vc ${on?'known':''}"><div class="h"><b>${esc(v[0])}</b><button class="say" data-say="${esc(v[0])}" type="button" aria-label="播放">${IC.play}</button></div><span class="cn">${esc(v[1])}</span><span class="ex">${esc(v[2])} <button class="say" data-say="${esc(v[2])}" type="button" aria-label="播放例句">${IC.play}</button></span>
+     ${recBlock(rk,'录下我读的例句')}
+     <span class="row"><button class="btn ghost-navy vcmp" data-i="${i}" data-needrec="${esc(rk)}" type="button" disabled>${IC.ear}对比</button><button class="btn ${on?'solid':''}" data-k="${k}" type="button">${on?'✓ 已掌握':'标记为已掌握'}</button></span></div>`}).join('')}
    </div>
    <div class="card"><h3 style="font-size:17px">生词本 (${S.saved.length})</h3>${S.saved.length?S.saved.map((x,i)=>`<div class="phr"><span>${esc(x.en)}<i>${esc(x.cn)}</i></span><span class="row"><button class="say" data-say="${esc(x.en)}" type="button" aria-label="播放">${IC.play}</button><button class="btn" data-del="${i}" type="button">移除</button></span></div>`).join(''):'<p class="note">在模式一的 AI 点评里点"加入生词本"，好的表达会收集到这里。</p>'}</div>`;
-  bindBack();bindSays();
-  app.querySelectorAll('.vmic').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;const out=document.getElementById('vr'+i);if(L){stopListen();return}
-    out.innerHTML='<span class="chip mid">在听…</span>';listen(null,m=>{const r=align(norm(th.vocab[i][2]),norm(m.text));out.innerHTML=`<span class="chip ${cls(r.score)}">${r.score}%</span>${r.miss.length?` <span class="note">没读准：${esc(r.miss.join(' '))}</span>`:''}`})});
+  bindBack();bindSays();bindRec();
+  app.querySelectorAll('.vcmp').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;compare(th.vocab[i][2],'v|'+th.id+'-'+i)});
   app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(S.vocab[k])delete S.vocab[k];else S.vocab[k]=1;save();renderVocab()});
   app.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.saved.splice(+b.dataset.del,1);save();renderVocab()});
 }
