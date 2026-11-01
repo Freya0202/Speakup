@@ -495,7 +495,7 @@ const DAYPLAN=[
 
 /* ===================== PROFILE & SETTINGS (this device only) ===================== */
 const PK='speakup-profile-v1';
-let P={name:'',company:'',city:'',bio:'',key:'',model:'claude-sonnet-5-5',voice:'',recVoice:!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent),autoAfterPlay:true};
+let P={name:'',company:'',city:'',bio:'',key:'',model:'claude-sonnet-5-5',voice:'',recVoice:!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent),autoAfterPlay:true,engine:'auto',srBroken:false,wmodel:'Xenova/whisper-base.en'};
 try{const r=localStorage.getItem(PK);if(r)Object.assign(P,JSON.parse(r))}catch(e){}
 function saveP(){try{localStorage.setItem(PK,JSON.stringify(P))}catch(e){}}
 let T=[];
@@ -561,9 +561,61 @@ const SR_ERR={
  'language-not-supported':'英式英语识别不可用，已自动改用美式英语，再点一次。',
  'aborted':'识别被中断了，再点一次。'};
 let srLang='en-GB';
+
+/* ---------- on-device Whisper engine (works without any phone speech service) ---------- */
+const useWhisper=()=>P.engine==='whisper'||(P.engine!=='browser'&&(!SR||P.srBroken));
+let WK=null,wReady=false,wJobs={},wSeq=0;
+function whisperWorker(){
+  if(WK)return WK;
+  const code=`import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.5';
+env.allowLocalModels=false;
+let asr=null,loading=null;
+async function load(model){if(asr)return asr;if(!loading)loading=pipeline('automatic-speech-recognition',model,{dtype:'q8',device:'wasm',progress_callback:p=>{if(p.status==='progress'&&p.total)self.postMessage({type:'progress',file:p.file,loaded:p.loaded,total:p.total})}});asr=await loading;return asr}
+self.onmessage=async e=>{const d=e.data;try{const m=await load(d.model);if(d.type==='load'){self.postMessage({type:'ready'});return}
+  const out=await m(d.audio,{chunk_length_s:30,stride_length_s:5});self.postMessage({type:'result',id:d.id,text:(out&&out.text||'').trim()})}
+  catch(err){self.postMessage({type:'error',id:d.id,message:String(err&&err.message||err)})}};`;
+  WK=new Worker(URL.createObjectURL(new Blob([code],{type:'text/javascript'})),{type:'module'});
+  const files={};
+  WK.onmessage=e=>{const d=e.data;
+    if(d.type==='progress'){files[d.file]=[d.loaded,d.total];let a=0,b=0;Object.values(files).forEach(([x,y])=>{a+=x;b+=y});
+      if(!wReady)diag(`首次使用：正在下载识别模型 ${Math.round(a/1048576)}/${Math.round(b/1048576)} MB（只需下载一次，之后离线可用）`)}
+    else if(d.type==='ready'){wReady=true}
+    else if(d.type==='result'||d.type==='error'){wReady=wReady||d.type==='result';const j=wJobs[d.id];delete wJobs[d.id];if(j)(d.type==='result'?j.res(d.text):j.rej(new Error(d.message)))}};
+  WK.onerror=e=>{diag('识别模型加载失败：'+(e.message||'请检查网络后刷新'),true);Object.values(wJobs).forEach(j=>j.rej(new Error('worker')));wJobs={};WK=null};
+  WK.postMessage({type:'load',model:P.wmodel});
+  return WK;
+}
+function transcribe(audio){return new Promise((res,rej)=>{const id=++wSeq;wJobs[id]={res,rej};whisperWorker().postMessage({type:'run',id,audio,model:P.wmodel},[audio.buffer])})}
+async function to16k(blob){const ac=new (window.AudioContext||window.webkitAudioContext)();const dec=await ac.decodeAudioData(await blob.arrayBuffer());try{ac.close()}catch(e){}
+  const off=new OfflineAudioContext(1,Math.max(1,Math.ceil(dec.duration*16000)),16000);const src=off.createBufferSource();src.buffer=dec;src.connect(off.destination);src.start();
+  const r=await off.startRendering();return {audio:r.getChannelData(0).slice(),secs:dec.duration}}
+async function listenWhisper(ta,onDone){
+  if(!navigator.mediaDevices||!window.MediaRecorder){diag('这个浏览器不能录音，请用 Chrome。',true);return}
+  try{speechSynthesis.cancel()}catch(e){}
+  const s={whisper:true,stopped:false,discard:false,ta,onDone,t0:Date.now()};L=s;setMicUI();
+  whisperWorker();
+  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+  catch(e){L=null;setMicUI();diag(SR_ERR['not-allowed'],true);return}
+  if(L!==s){st.getTracks().forEach(t=>t.stop());return}
+  if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}
+  const mr=new MediaRecorder(st);const ch=[];s.mr=mr;
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
+  s.timer=setInterval(()=>{const t=Math.round((Date.now()-s.t0)/1000);if(!s.stopped)diag(`录音中 ${Math.floor(t/60)}:${pad(t%60)} · 说完点一下红色按钮停止`);if(t>=120)stopListen()},500);
+  mr.onstop=async()=>{clearInterval(s.timer);st.getTracks().forEach(t=>t.stop());L=null;setMicUI();
+    if(s.discard||!ch.length)return;
+    const blob=new Blob(ch,{type:mr.mimeType||'audio/webm'});myAudioURL=URL.createObjectURL(blob);
+    document.querySelectorAll('.myaudio').forEach(a=>{a.src=myAudioURL;a.hidden=false});
+    diag(wReady?'正在识别…':'正在识别…（第一次要先加载模型，稍等）');
+    try{const {audio,secs}=await to16k(blob);if(secs<0.6){diag('录得太短了，再说一次。',true);return}
+      const text=(await transcribe(audio)).replace(/\[.*?\]|\(.*?\)/g,' ').replace(/\s+/g,' ').trim();
+      if(!text){diag('没听清，靠近手机再说一次。',true);return}
+      if(s.ta)s.ta.value=text;diag('识别完成（本机识别）');if(s.onDone)s.onDone({text,secs,conf:0})}
+    catch(e){diag('识别失败：'+e.message+'。可以先用键盘麦克风说进框里。',true)}};
+  mr.start(250);diag('录音中 0:00 · 说完点一下红色按钮停止');
+}
 function listen(ta,onDone){
-  if(!SR){toast('这个浏览器不支持语音识别，请用 Chrome 或 Safari，或用键盘麦克风输入');return}
-  if(L){L.stopped=true;stopListen();return}
+  if(L){stopListen();return}
+  if(useWhisper())return listenWhisper(ta,onDone);
   try{speechSynthesis.cancel()}catch(e){}
   if(myAudioURL){URL.revokeObjectURL(myAudioURL);myAudioURL=null}
   const s={final:'',tFirst:0,tLast:0,confs:[],err:null,onDone,ta,stopped:false,got:false,rounds:0,t0:Date.now()};L=s;
@@ -592,12 +644,14 @@ function listen(ta,onDone){
     const text=(s.ta?s.ta.value:s.final).trim();const span=s.tFirst&&s.tLast?(s.tLast-s.tFirst)/1000:0;const secs=span>1.5?span+0.6:0;
     const conf=s.confs.length?s.confs.reduce((a,b)=>a+b,0)/s.confs.length:0;
     if(text){diag('识别完成');if(s.onDone)s.onDone({text,secs,conf})}
-    else if(!s.err)diag('这次没有识别到文字。如果一直这样，请看下面的"识别没反应"说明，或先用键盘麦克风说。',true)};
+    else if(!s.err||s.err==='no-speech'||s.err==='service-not-allowed'||s.err==='network'){
+      if(P.engine==='auto'){P.srBroken=true;saveP();diag('这台手机的浏览器识别没有返回结果，已自动切换到"本机识别"。请再点一次红色按钮说。',true)}
+      else if(!s.err)diag('这次没有识别到文字。可以在设置里把识别方式改成"本机识别"。',true)}};
   try{run()}catch(e){L=null;diag('语音识别启动失败：'+e.message,true);return}
   if(P.recVoice)startRecorder();
   setMicUI();
 }
-function stopListen(){if(L){L.stopped=true;try{L.r.stop()}catch(e){}}}
+function stopListen(discard){if(!L)return;L.stopped=true;if(discard)L.discard=true;if(L.whisper){if(L.mr&&L.mr.state!=='inactive')L.mr.stop();else{clearInterval(L.timer);L=null;setMicUI()}}else{try{L.r.stop()}catch(e){}}}
 function setMicUI(){document.querySelectorAll('.mic').forEach(b=>{b.classList.toggle('on',!!L);b.setAttribute('aria-label',L?'停止':'开始说')});
   document.querySelectorAll('.micstate').forEach(el=>el.textContent=L?'正在听…说完点一下停止':el.dataset.idle||'点红色按钮开始说')}
 let MR=null;
@@ -657,8 +711,8 @@ const IC={
 };
 let tt;function toast(m){let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el)}el.textContent=m;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,3000)}
 const app=document.getElementById('app');
-function micRow(idle){return SR?`<div class="microw"><button class="mic" id="micBtn" type="button" aria-label="开始说">${IC.mic}</button><span class="lab"><b class="micstate" data-idle="${esc(idle)}">${esc(idle)}</b>英式英语识别 · 说完再点一次停止</span></div><div class="micdiag note" aria-live="polite"></div>
-  <details class="note"><summary>识别没反应？</summary>1. 一定要在 Chrome 里打开（不是小米浏览器）。<br>2. 点地址栏左边的图标 → 权限 → 麦克风 允许。<br>3. 手机 设置 → 搜索"语音输入"或"语音识别服务" → 选 Google；没有的话在 Play 商店装 Google 和 Speech Recognition &amp; Synthesis。<br>4. 关掉小爱同学等正在用麦克风的 App。<br>5. 临时办法：点输入框，用键盘上的麦克风说，说完点"提交评估"或"按框里的文字检查"。</details>`
+function micRow(idle){return (SR||window.MediaRecorder)?`<div class="microw"><button class="mic" id="micBtn" type="button" aria-label="开始说">${IC.mic}</button><span class="lab"><b class="micstate" data-idle="${esc(idle)}">${esc(idle)}</b>${useWhisper()?'本机识别（Whisper）':'浏览器识别（英式）'} · 说完再点一次停止</span></div><div class="micdiag note" aria-live="polite"></div>
+  <details class="note"><summary>识别没反应？</summary>1. 一定要在 Chrome 里打开（不是小米浏览器）。<br>2. 点地址栏左边的图标 → 权限 → 麦克风 允许。<br>3. 手机 设置 → 搜索"语音输入"或"语音识别服务" → 选 Google；没有的话在 Play 商店装 Google 和 Speech Recognition &amp; Synthesis。<br>4. 关掉小爱同学等正在用麦克风的 App。<br>5. 到 设置 → 识别方式，改成"本机识别"。<br>6. 临时办法：点输入框，用键盘上的麦克风说，说完点"提交评估"或"按框里的文字检查"。</details>`
   :`<div class="warnbox">这个浏览器不支持语音识别（建议用 Chrome 或 Safari）。可以先用手机键盘上的麦克风说，结果会填进下面的框。</div>`}
 function bindSays(){app.querySelectorAll('.say').forEach(b=>b.onclick=()=>speak(b.dataset.say,{alt:!!b.dataset.alt,rate:b.dataset.rate?+b.dataset.rate:undefined}))}
 
@@ -677,7 +731,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){save();sto
 const fmtT=s=>`${Math.floor(s/60)}:${pad(s%60)}`;
 function topBar(title){const r=dayRec(ds(todayD()));return `<div class="bar-top"><button class="btn" id="backBtn" type="button">${IC.back}返回</button><b style="font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</b><span class="timer" title="今天已练">今日 <span id="tmr">${fmtT(r.sec)}</span></span></div>`}
 function bindBack(){document.getElementById('backBtn').onclick=()=>go('home')}
-function leaveView(){stopListen();try{speechSynthesis.cancel()}catch(e){}closeCam();save()}
+function leaveView(){stopListen(true);try{speechSynthesis.cancel()}catch(e){}closeCam();save()}
 function go(v,arg){leaveView();view=v;window.scrollTo(0,0);if(v==='home')renderHome();else if(v==='scene')startScene(arg);else if(v==='shadow')renderShadow(arg);else if(v==='vocab')renderVocab();else if(v==='settings')renderSettings()}
 
 /* ===================== HOME ===================== */
@@ -752,6 +806,14 @@ function renderSettings(){
     <div class="warnbox" id="ttsNote" hidden><b>没有英式声音怎么办（安卓）</b><br>1. 在 Play 商店安装 <b>Speech Recognition &amp; Synthesis</b>（Google 出品，也叫 Speech Services by Google）。<br>2. 手机 设置 → 搜索"文字转语音" → 首选引擎选 Google → 语言选 English (United Kingdom)，下载语音数据。<br>3. 回到 Chrome 刷新本页。</div>
     <div class="row"><button class="btn say" data-say="Good morning, everyone. Shall we make a start?" type="button">${IC.play}试听</button></div>
     <label class="note" style="display:flex;gap:8px;align-items:flex-start" ${IS_MOBILE?'hidden':''}><input type="checkbox" id="pRec" ${P.recVoice?'checked':''}>说话时同时录下我的声音，方便回放对比（部分手机不支持边识别边录，不行会自动关掉）</label>
+    <div class="field"><label for="pEng">识别方式</label><select id="pEng">
+      <option value="auto" ${P.engine==='auto'?'selected':''}>自动（浏览器识别不行就换本机识别）</option>
+      <option value="browser" ${P.engine==='browser'?'selected':''}>浏览器识别（更严格，能抓发音问题，部分手机不支持）</option>
+      <option value="whisper" ${P.engine==='whisper'?'selected':''}>本机识别 Whisper（所有手机都能用，首次下载模型）</option></select>
+      <span class="note">当前在用：${useWhisper()?'本机识别':'浏览器识别'}</span></div>
+    <div class="field"><label for="pWm">本机识别模型</label><select id="pWm">
+      <option value="Xenova/whisper-base.en" ${P.wmodel==='Xenova/whisper-base.en'?'selected':''}>标准（约 75MB，更准）</option>
+      <option value="Xenova/whisper-tiny.en" ${P.wmodel==='Xenova/whisper-tiny.en'?'selected':''}>轻量（约 40MB，更快）</option></select></div>
     <label class="note" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="pAuto" ${P.autoAfterPlay?'checked':''}>跟读时，原声播完自动开始识别</label>
   </div>
   <div class="card"><b>AI 点评（可选）</b>
@@ -765,7 +827,7 @@ function renderSettings(){
     <div class="row"><button class="btn" id="expBtn" type="button">导出备份</button><label class="btn" for="impFile">导入备份</label><input type="file" id="impFile" accept="application/json,.json" hidden></div></div>
   <div class="row"><button class="btn solid" id="saveSet" type="button">保存设置</button></div>`;
   bindBack();bindSays();fillVoices(document.getElementById('voiceSel'));
-  const collect=()=>{P.name=pName.value.trim();P.company=pCo.value.trim();P.city=pCity.value.trim();P.bio=pBio.value.trim();P.key=pKey.value.trim();P.model=pModel.value;P.voice=voiceSel.value;P.recVoice=IS_MOBILE?false:pRec.checked;P.autoAfterPlay=pAuto.checked;saveP();buildContent()};
+  const collect=()=>{P.name=pName.value.trim();P.company=pCo.value.trim();P.city=pCity.value.trim();P.bio=pBio.value.trim();P.key=pKey.value.trim();P.model=pModel.value;P.voice=voiceSel.value;P.recVoice=IS_MOBILE?false:pRec.checked;P.autoAfterPlay=pAuto.checked;const ne=document.getElementById('pEng').value,nm=document.getElementById('pWm').value;if(ne!==P.engine)P.srBroken=false;P.engine=ne;if(nm!==P.wmodel&&WK){WK.terminate();WK=null;wReady=false}P.wmodel=nm;saveP();buildContent()};
   const $=id=>document.getElementById(id);const pName=$('pName'),pCo=$('pCo'),pCity=$('pCity'),pBio=$('pBio'),pKey=$('pKey'),pModel=$('pModel'),voiceSel=$('voiceSel'),pRec=$('pRec'),pAuto=$('pAuto');
   voiceSel.onchange=()=>{P.voice=voiceSel.value;saveP()};
   $('saveSet').onclick=()=>{collect();toast('已保存');go('home')};
@@ -1019,7 +1081,7 @@ function renderVocab(){
   app.innerHTML=`${topBar('词汇 · '+th.cn)}
    <div class="card"><h3 style="font-size:17px">本周 8 个表达</h3><p class="note">听 → 点麦克风跟读例句 → 能自己造句了就勾"已掌握"。</p>
    ${th.vocab.map((v,i)=>{const k=th.id+'-'+i,on=!!S.vocab[k];return `<div class="vc ${on?'known':''}"><div class="h"><b>${esc(v[0])}</b><button class="say" data-say="${esc(v[0])}" type="button" aria-label="播放">${IC.play}</button></div><span class="cn">${esc(v[1])}</span><span class="ex">${esc(v[2])} <button class="say" data-say="${esc(v[2])}" type="button" aria-label="播放例句">${IC.play}</button></span>
-     <span class="row">${SR?`<button class="btn vmic" data-i="${i}" type="button">${IC.mic}跟读例句</button>`:''}<button class="btn ${on?'solid':''}" data-k="${k}" type="button">${on?'✓ 已掌握':'标记为已掌握'}</button><span class="vres" id="vr${i}"></span></span></div>`}).join('')}
+     <span class="row">${(SR||window.MediaRecorder)?`<button class="btn vmic" data-i="${i}" type="button">${IC.mic}跟读例句</button>`:''}<button class="btn ${on?'solid':''}" data-k="${k}" type="button">${on?'✓ 已掌握':'标记为已掌握'}</button><span class="vres" id="vr${i}"></span></span></div>`}).join('')}
    </div>
    <div class="card"><h3 style="font-size:17px">生词本 (${S.saved.length})</h3>${S.saved.length?S.saved.map((x,i)=>`<div class="phr"><span>${esc(x.en)}<i>${esc(x.cn)}</i></span><span class="row"><button class="say" data-say="${esc(x.en)}" type="button" aria-label="播放">${IC.play}</button><button class="btn" data-del="${i}" type="button">移除</button></span></div>`).join(''):'<p class="note">在模式一的 AI 点评里点"加入生词本"，好的表达会收集到这里。</p>'}</div>`;
   bindBack();bindSays();
